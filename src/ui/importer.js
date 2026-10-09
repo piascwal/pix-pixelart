@@ -1,0 +1,86 @@
+// Import d'image : glisser-déposer, bouton, coller. Tout reste dans le navigateur.
+
+const ACCEPTED = ['image/png', 'image/jpeg', 'image/webp'];
+const MAX_PIXELS = 24e6;
+
+/** Décode un fichier image en { image: {width,height,data}, bitmap: canvas }. */
+export async function decodeImage(blob) {
+  const bmp = await createImageBitmap(blob);
+  if (bmp.width * bmp.height > MAX_PIXELS) {
+    bmp.close?.();
+    throw new Error(`Image trop grande (${bmp.width}×${bmp.height}). Maximum ~24 mégapixels.`);
+  }
+  const canvas = document.createElement('canvas');
+  canvas.width = bmp.width;
+  canvas.height = bmp.height;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(bmp, 0, 0);
+  bmp.close?.();
+  const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  return { image: { width: canvas.width, height: canvas.height, data }, bitmap: canvas };
+}
+
+/**
+ * @param {{ dropTarget: HTMLElement, fileInput: HTMLInputElement, onImage: Function, onError: Function }} opts
+ *   onImage({ image, bitmap, name })
+ */
+export function setupImporter({ dropTarget, fileInput, onImage, onError }) {
+  async function load(file, name) {
+    if (!file) return;
+    if (file.type && !ACCEPTED.includes(file.type)) {
+      onError(`Format non pris en charge (${file.type}). Utilisez PNG, JPG ou WebP.`);
+      return;
+    }
+    try {
+      const decoded = await decodeImage(file);
+      onImage({ ...decoded, name: name || file.name || 'image' });
+    } catch (err) {
+      onError(err.message || 'Impossible de lire cette image.');
+    }
+  }
+
+  fileInput.addEventListener('change', () => {
+    load(fileInput.files[0]);
+    fileInput.value = '';
+  });
+
+  // glisser-déposer n'importe où sur la page
+  let depth = 0;
+  window.addEventListener('dragenter', (e) => {
+    if (!e.dataTransfer?.types.includes('Files')) return;
+    e.preventDefault();
+    depth++;
+    dropTarget.classList.add('is-dragging');
+  });
+  window.addEventListener('dragleave', () => {
+    depth = Math.max(0, depth - 1);
+    if (!depth) dropTarget.classList.remove('is-dragging');
+  });
+  window.addEventListener('dragover', (e) => e.preventDefault());
+  window.addEventListener('drop', (e) => {
+    e.preventDefault();
+    depth = 0;
+    dropTarget.classList.remove('is-dragging');
+    load(e.dataTransfer?.files[0]);
+  });
+
+  window.addEventListener('paste', (e) => {
+    const item = [...(e.clipboardData?.items || [])].find((i) => i.type.startsWith('image/'));
+    if (!item) return;
+    e.preventDefault();
+    load(item.getAsFile(), 'image-collee');
+  });
+
+  return {
+    /** Charge une image par URL (l'exemple fourni avec l'appli). */
+    async loadUrl(url, name) {
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`Téléchargement impossible (${res.status}).`);
+        await load(await res.blob(), name);
+      } catch (err) {
+        onError(err.message);
+      }
+    },
+  };
+}

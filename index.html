@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Depix — du faux au vrai pixel art</title>
+<meta name="description" content="Convertit le faux pixel art généré par IA en vrai pixel art : une case = un pixel, grille régulière, palette limitée. Tout se passe dans votre navigateur.">
+<meta name="theme-color" content="#16131f">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 4' shape-rendering='crispEdges'><rect width='2' height='2' fill='%23ff4fa3'/><rect x='2' y='2' width='2' height='2' fill='%2333d1ff'/><rect x='2' width='2' height='2' fill='%23ffd400'/></svg>">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/layout.css">
+<link rel="stylesheet" href="css/components.css">
+<script type="module" src="src/ui/app.js"></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-logo" aria-hidden="true"></span>
+    <div>
+      <h1>Depix</h1>
+      <p class="tagline">Du faux pixel art d'IA au vrai pixel art</p>
+    </div>
+  </div>
+  <div class="topbar-actions">
+    <label class="btn btn-primary">
+      <input type="file" id="file" accept="image/png,image/jpeg,image/webp" hidden>
+      Choisir une image
+    </label>
+  </div>
+</header>
+
+<details class="notice">
+  <summary>🔒 Tout reste dans votre navigateur · Ce que Depix garantit (et ne garantit pas)</summary>
+  <div class="notice-body">
+    <p><strong>Garanti :</strong> la sortie est techniquement du <em>vrai</em> pixel art — chaque case devient un pixel d'une seule couleur, sur une grille régulière, avec une palette limitée, sans flou ni dégradé parasite. Aucune image n'est envoyée sur un serveur.</p>
+    <p><strong>Pas garanti :</strong> la <em>fidélité</em> au dessin d'origine. Les images d'IA trichent souvent :</p>
+    <ul>
+      <li>la grille <strong>dérive</strong> (les cases n'ont pas toutes la même taille d'un bout à l'autre) ;</li>
+      <li>des <strong>tailles de pixels mélangées</strong> (yeux, reflets en demi-pixels) ;</li>
+      <li>du <strong>tramage</strong> volontaire pris pour du bruit ;</li>
+      <li>des images très <strong>floues ou compressées</strong>.</li>
+    </ul>
+    <p>D'où les réglages manuels de la grille et le mini éditeur pour retoucher le résultat.</p>
+  </div>
+</details>
+
+<main class="app">
+  <section class="stage" id="stage" data-mode="side" data-tool="move" aria-label="Aperçu">
+    <div class="toolbar" role="toolbar" aria-label="Outils">
+      <div class="tool-group needs-result">
+        <button type="button" class="icon-btn" data-tool="move" title="Déplacer (M)" aria-label="Déplacer">✋</button>
+        <button type="button" class="icon-btn" data-tool="pencil" title="Crayon (B)" aria-label="Crayon">✏️<span class="current-color" id="current-color"></span></button>
+        <button type="button" class="icon-btn" data-tool="eraser" title="Gomme (E)" aria-label="Gomme">🧽</button>
+        <button type="button" class="icon-btn" data-tool="picker" title="Pipette (I)" aria-label="Pipette">💧</button>
+        <span class="sep"></span>
+        <button type="button" class="icon-btn" id="undo" title="Annuler (Ctrl+Z)" aria-label="Annuler">↶</button>
+        <button type="button" class="icon-btn" id="redo" title="Rétablir (Ctrl+Y)" aria-label="Rétablir">↷</button>
+      </div>
+      <div class="tool-group needs-image">
+        <button type="button" class="icon-btn" id="zoom-out" title="Dézoomer (−)" aria-label="Dézoomer">−</button>
+        <button type="button" class="icon-btn" id="zoom-in" title="Zoomer (+)" aria-label="Zoomer">+</button>
+        <button type="button" class="icon-btn text" id="zoom-fit" title="Cadrer le résultat (0)">Cadrer</button>
+        <button type="button" class="icon-btn text" id="zoom-all" title="Voir toute l'image">Tout</button>
+        <span class="sep"></span>
+        <div class="segmented" role="group" aria-label="Affichage">
+          <button type="button" data-mode="side" aria-pressed="true">Avant | Après</button>
+          <button type="button" data-mode="original">Avant</button>
+          <button type="button" data-mode="result">Après</button>
+        </div>
+        <label class="check"><input type="checkbox" id="show-grid" checked> Grille</label>
+      </div>
+    </div>
+
+    <div class="panes">
+      <figure class="pane pane-original">
+        <figcaption>Original + grille</figcaption>
+        <canvas id="view-original"></canvas>
+      </figure>
+      <figure class="pane pane-result">
+        <figcaption>Vrai pixel art</figcaption>
+        <canvas id="view-result"></canvas>
+      </figure>
+
+      <div class="dropzone">
+        <div class="dropzone-inner">
+          <div class="dropzone-icon" aria-hidden="true"></div>
+          <p class="dropzone-title">Glissez une image ici</p>
+          <p>ou collez-la (Ctrl+V), ou <label for="file" class="link">choisissez un fichier</label></p>
+          <p class="muted">PNG, JPG ou WebP. Rien n'est envoyé : la conversion se fait sur votre appareil.</p>
+          <button type="button" class="btn" id="example">Essayer avec l'exemple</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="statusbar">
+      <span id="source-name" class="muted"></span>
+      <span id="status" role="status" aria-live="polite"></span>
+    </div>
+  </section>
+
+  <aside class="panel" aria-label="Réglages">
+    <form id="controls" class="card" onsubmit="return false">
+      <h2>Grille</h2>
+      <p class="hint" data-info="detected"></p>
+      <div class="field">
+        <label for="period-n">Taille d'une case</label>
+        <div class="range-row">
+          <input type="range" min="3" max="20" step="0.005" data-setting="period" aria-label="Taille d'une case">
+          <input type="number" id="period-n" min="3" max="20" step="0.005" data-setting="period"><span class="unit">px</span>
+        </div>
+      </div>
+      <div class="field">
+        <label for="offx-n">Décalage horizontal</label>
+        <div class="range-row">
+          <input type="range" min="0" max="20" step="0.25" data-setting="offsetX" aria-label="Décalage horizontal">
+          <input type="number" id="offx-n" min="0" max="20" step="0.25" data-setting="offsetX"><span class="unit">px</span>
+        </div>
+      </div>
+      <div class="field">
+        <label for="offy-n">Décalage vertical</label>
+        <div class="range-row">
+          <input type="range" min="0" max="20" step="0.25" data-setting="offsetY" aria-label="Décalage vertical">
+          <input type="number" id="offy-n" min="0" max="20" step="0.25" data-setting="offsetY"><span class="unit">px</span>
+        </div>
+      </div>
+      <button type="button" class="btn btn-small" data-action="auto-grid">↺ Revenir à la détection auto</button>
+
+      <h2>Palette</h2>
+      <div class="field">
+        <label for="colors-n">Nombre de couleurs</label>
+        <div class="range-row">
+          <input type="range" min="2" max="128" step="1" data-setting="colors" aria-label="Nombre de couleurs">
+          <input type="number" id="colors-n" min="2" max="256" step="1" data-setting="colors">
+        </div>
+        <p class="hint">48 à 56 conviennent souvent ; trop peu et les petites zones (un logo) disparaissent.</p>
+      </div>
+      <div class="swatches" id="palette" aria-label="Nuancier"></div>
+
+      <h2>Fond</h2>
+      <div class="field">
+        <label for="tol-n">Tolérance du fond</label>
+        <div class="range-row">
+          <input type="range" min="0" max="250" step="1" data-setting="tolerance" aria-label="Tolérance du fond">
+          <input type="number" id="tol-n" min="0" max="765" step="1" data-setting="tolerance">
+        </div>
+        <p class="hint">Écart RVB sous lequel un pixel est considéré comme du fond.</p>
+      </div>
+      <div class="field">
+        <span class="label">Fond de sortie</span>
+        <div class="segmented">
+          <label><input type="radio" name="output" value="transparent" checked> Transparent</label>
+          <label><input type="radio" name="output" value="magenta"> Magenta #ff00ff</label>
+        </div>
+      </div>
+
+      <h2>Nettoyage</h2>
+      <label class="check"><input type="checkbox" data-setting="cleanup" checked> Retirer les pixels isolés et boucher les trous d'1 px</label>
+      <div class="field" data-row="minIsland">
+        <label for="island-n">Retirer les îlots de moins de</label>
+        <div class="range-row">
+          <input type="range" min="1" max="30" step="1" data-setting="minIsland" aria-label="Taille minimale des îlots">
+          <input type="number" id="island-n" min="1" max="500" step="1" data-setting="minIsland"><span class="unit">px</span>
+        </div>
+      </div>
+    </form>
+
+    <section id="export" class="card">
+      <h2>Exporter en PNG</h2>
+      <p class="hint" data-info="export"></p>
+      <div class="export-buttons">
+        <button type="button" class="btn btn-primary" data-export="1">Natif</button>
+        <button type="button" class="btn" data-export="2">×2</button>
+        <button type="button" class="btn" data-export="4">×4</button>
+        <button type="button" class="btn" data-export="8">×8</button>
+      </div>
+      <p class="hint">Agrandissement au plus proche voisin : les pixels restent nets.</p>
+    </section>
+
+    <p class="footnote muted">Retouches : choisissez une couleur du nuancier puis dessinez sur « Vrai pixel art ». Changer un réglage relance la conversion et efface les retouches.</p>
+  </aside>
+</main>
+
+<noscript><p class="notice-body">Depix a besoin de JavaScript.</p></noscript>
+</body>
+</html>
