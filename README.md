@@ -27,6 +27,8 @@ Raccourcis : `M` déplacer, `B` crayon, `E` gomme, `I` pipette, `C` rogner, `+` 
 
 ## Ce qui est garanti, et ce qui ne l'est pas
 
+(Ce texte est aussi dans l'application, sur la page `cgu.html` « Conditions d'utilisation », liée depuis l'en-tête.)
+
 La sortie est **techniquement** du vrai pixel art, toujours. Sa **fidélité** au dessin d'origine, elle, n'est pas garantie :
 
 - **grilles qui dérivent** : les cases n'ont pas la même taille d'un bout à l'autre de l'image ;
