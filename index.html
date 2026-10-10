@@ -18,31 +18,30 @@
   <span class="brand-logo" aria-hidden="true"></span>
   <h1>Depix</h1>
   <p class="tagline">Du faux pixel art d'IA au vrai pixel art</p>
-  <a class="topbar-link" href="cgu.html">Conditions d'utilisation</a>
 </header>
 
 <main class="app">
-  <section class="stage" id="stage" data-mode="side" data-tool="move" aria-label="Aperçu">
+  <section class="stage" id="stage" data-mode="side" data-tool="none" aria-label="Aperçu">
     <div class="toolbar" role="toolbar" aria-label="Outils">
       <div class="tool-group needs-result">
-        <button type="button" class="icon-btn" data-tool="move" data-tip="Déplacer l'image" aria-label="Déplacer l'image">✋</button>
-        <button type="button" class="icon-btn" data-tool="pencil" data-tip="Crayon : dessiner une case avec la couleur choisie" aria-label="Crayon">✏️<span class="current-color" id="current-color"></span></button>
-        <button type="button" class="icon-btn" data-tool="eraser" data-tip="Gomme : rendre une case transparente" aria-label="Gomme">🧽</button>
-        <button type="button" class="icon-btn" data-tool="picker" data-tip="Pipette : prendre la couleur d'une case" aria-label="Pipette">💧</button>
+        <button type="button" class="icon-btn" data-tool="move" data-tip="Main : déplacer l'image" aria-label="Main : déplacer l'image"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#hand"/></svg></button>
+        <button type="button" class="icon-btn" data-tool="pencil" data-tip="Crayon : dessiner une case avec la couleur choisie" aria-label="Crayon"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#pencil"/></svg><span class="current-color" id="current-color"></span></button>
+        <button type="button" class="icon-btn" data-tool="eraser" data-tip="Gomme : rendre une case transparente" aria-label="Gomme"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#eraser"/></svg></button>
+        <button type="button" class="icon-btn" data-tool="picker" data-tip="Pipette : prendre la couleur d'une case" aria-label="Pipette"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#pipette"/></svg></button>
         <span class="sep"></span>
-        <button type="button" class="icon-btn" id="undo" data-tip="Annuler (Ctrl+Z)" aria-label="Annuler">↶</button>
-        <button type="button" class="icon-btn" id="redo" data-tip="Rétablir (Ctrl+Y)" aria-label="Rétablir">↷</button>
+        <button type="button" class="icon-btn" id="undo" data-tip="Annuler (Ctrl+Z)" aria-label="Annuler"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#undo-2"/></svg></button>
+        <button type="button" class="icon-btn" id="redo" data-tip="Rétablir (Ctrl+Y)" aria-label="Rétablir"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#redo-2"/></svg></button>
       </div>
       <div class="tool-group needs-image">
-        <button type="button" class="icon-btn" data-tool="crop" data-tip="Rogner : ne garder qu'une zone de l'original" aria-label="Rogner">✂️</button>
+        <button type="button" class="icon-btn" data-tool="crop" data-tip="Rogner : ne garder qu'une zone de l'original" aria-label="Rogner"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#crop"/></svg></button>
         <span id="crop-actions" class="tool-group" hidden>
           <button type="button" class="btn btn-small btn-primary" id="crop-apply">Rogner ici</button>
           <button type="button" class="btn btn-small" id="crop-cancel">Annuler</button>
         </span>
-        <button type="button" class="btn btn-small" id="crop-reset" hidden>↩ Image entière</button>
+        <button type="button" class="btn btn-small" id="crop-reset" hidden><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#rotate-ccw"/></svg> Image entière</button>
         <span class="sep"></span>
-        <button type="button" class="icon-btn" id="zoom-out" data-tip="Dézoomer (−)" aria-label="Dézoomer">−</button>
-        <button type="button" class="icon-btn" id="zoom-in" data-tip="Zoomer (+)" aria-label="Zoomer">+</button>
+        <button type="button" class="icon-btn" id="zoom-out" data-tip="Dézoomer (−)" aria-label="Dézoomer"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#zoom-out"/></svg></button>
+        <button type="button" class="icon-btn" id="zoom-in" data-tip="Zoomer (+)" aria-label="Zoomer"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#zoom-in"/></svg></button>
         <button type="button" class="icon-btn text" id="zoom-fit" data-tip="Cadrer le sprite (0)">Cadrer</button>
         <button type="button" class="icon-btn text" id="zoom-all" data-tip="Voir toute l'image">Tout</button>
         <span class="sep"></span>
@@ -52,7 +51,7 @@
           <button type="button" data-mode="result">Après</button>
         </div>
         <label class="check"><input type="checkbox" id="show-grid" checked> Grille</label>
-        <button type="button" class="icon-btn text" id="pick-another" data-tip="Choisir une autre image" aria-label="Choisir une autre image">📂<span class="hide-narrow"> Autre image</span></button>
+        <button type="button" class="icon-btn text" id="pick-another" data-tip="Choisir une autre image" aria-label="Choisir une autre image"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#folder-open"/></svg><span class="hide-narrow">Autre image</span></button>
       </div>
     </div>
 
@@ -81,7 +80,7 @@
     </div>
 
     <p class="gesture-hint muted">
-      <span class="only-touch">1 doigt : déplacer · 2 doigts : pincer pour zoomer, glisser pour faire défiler la page</span>
+      <span class="only-touch">Sans outil, la page défile normalement. Avec la main (ou un autre outil) : 1 doigt agit sur l'image, 2 doigts pincent pour zoomer et font défiler la page.</span>
       <span class="only-mouse">Glisser : déplacer · Molette : zoom (Ctrl + molette si la page défile)</span>
     </p>
 
@@ -94,71 +93,87 @@
 
   <aside class="panel" aria-label="Réglages">
     <form id="controls" class="card" onsubmit="return false">
-      <h2>Grille</h2>
-      <p class="hint" data-info="detected"></p>
-      <div class="field">
-        <label for="period-n">Taille d'une case</label>
-        <div class="range-row">
-          <input type="range" min="3" max="20" step="0.005" data-setting="period" aria-label="Taille d'une case">
-          <input type="number" id="period-n" min="3" max="20" step="0.005" data-setting="period"><span class="unit">px</span>
+      <details class="section" open>
+        <summary>Grille</summary>
+        <div class="section-body">
+          <p class="hint" data-info="detected"></p>
+          <div class="field">
+            <label for="period-n">Taille d'une case</label>
+            <div class="range-row">
+              <input type="range" min="3" max="20" step="0.005" data-setting="period" aria-label="Taille d'une case">
+              <input type="number" id="period-n" min="3" max="20" step="0.005" data-setting="period"><span class="unit">px</span>
+            </div>
+          </div>
+          <div class="field">
+            <label for="offx-n">Décalage horizontal</label>
+            <div class="range-row">
+              <input type="range" min="0" max="20" step="0.25" data-setting="offsetX" aria-label="Décalage horizontal">
+              <input type="number" id="offx-n" min="0" max="20" step="0.25" data-setting="offsetX"><span class="unit">px</span>
+            </div>
+          </div>
+          <div class="field">
+            <label for="offy-n">Décalage vertical</label>
+            <div class="range-row">
+              <input type="range" min="0" max="20" step="0.25" data-setting="offsetY" aria-label="Décalage vertical">
+              <input type="number" id="offy-n" min="0" max="20" step="0.25" data-setting="offsetY"><span class="unit">px</span>
+            </div>
+          </div>
+          <button type="button" class="btn btn-small" data-action="auto-grid"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#rotate-ccw"/></svg> Revenir à la détection auto</button>
         </div>
-      </div>
-      <div class="field">
-        <label for="offx-n">Décalage horizontal</label>
-        <div class="range-row">
-          <input type="range" min="0" max="20" step="0.25" data-setting="offsetX" aria-label="Décalage horizontal">
-          <input type="number" id="offx-n" min="0" max="20" step="0.25" data-setting="offsetX"><span class="unit">px</span>
-        </div>
-      </div>
-      <div class="field">
-        <label for="offy-n">Décalage vertical</label>
-        <div class="range-row">
-          <input type="range" min="0" max="20" step="0.25" data-setting="offsetY" aria-label="Décalage vertical">
-          <input type="number" id="offy-n" min="0" max="20" step="0.25" data-setting="offsetY"><span class="unit">px</span>
-        </div>
-      </div>
-      <button type="button" class="btn btn-small" data-action="auto-grid">↺ Revenir à la détection auto</button>
+      </details>
 
-      <h2>Palette</h2>
-      <div class="field">
-        <label for="colors-n">Nombre de couleurs</label>
-        <div class="range-row">
-          <input type="range" min="2" max="128" step="1" data-setting="colors" aria-label="Nombre de couleurs">
-          <input type="number" id="colors-n" min="2" max="256" step="1" data-setting="colors">
+      <details class="section" open>
+        <summary>Palette</summary>
+        <div class="section-body">
+          <div class="field">
+            <label for="colors-n">Nombre de couleurs</label>
+            <div class="range-row">
+              <input type="range" min="2" max="128" step="1" data-setting="colors" aria-label="Nombre de couleurs">
+              <input type="number" id="colors-n" min="2" max="256" step="1" data-setting="colors">
+            </div>
+            <p class="hint">48 à 56 conviennent souvent ; trop peu et les petites zones (un logo) disparaissent. Changer ce nombre réinitialise les choix de couleurs ci-dessous.</p>
+          </div>
+          <div class="swatches" id="palette" aria-label="Nuancier"></div>
+          <p class="hint">Touchez une couleur pour voir son code, l'écarter ou la remplacer.</p>
+          <div class="swatch-detail" id="swatch-detail" hidden></div>
+          <button type="button" class="btn btn-small" data-action="palette-reset" hidden><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#rotate-ccw"/></svg> Réinitialiser les choix de couleurs</button>
         </div>
-        <p class="hint">48 à 56 conviennent souvent ; trop peu et les petites zones (un logo) disparaissent. Changer ce nombre réinitialise les choix de couleurs ci-dessous.</p>
-      </div>
-      <div class="swatches" id="palette" aria-label="Nuancier"></div>
-      <p class="hint">Touchez une couleur pour voir son code, l'écarter ou la remplacer.</p>
-      <div class="swatch-detail" id="swatch-detail" hidden></div>
-      <button type="button" class="btn btn-small" data-action="palette-reset" hidden>↺ Réinitialiser les choix de couleurs</button>
+      </details>
 
-      <h2>Fond</h2>
-      <div class="field">
-        <label for="tol-n">Tolérance du fond</label>
-        <div class="range-row">
-          <input type="range" min="0" max="250" step="1" data-setting="tolerance" aria-label="Tolérance du fond">
-          <input type="number" id="tol-n" min="0" max="765" step="1" data-setting="tolerance">
+      <details class="section" open>
+        <summary>Fond</summary>
+        <div class="section-body">
+          <div class="field">
+            <label for="tol-n">Tolérance du fond</label>
+            <div class="range-row">
+              <input type="range" min="0" max="250" step="1" data-setting="tolerance" aria-label="Tolérance du fond">
+              <input type="number" id="tol-n" min="0" max="765" step="1" data-setting="tolerance">
+            </div>
+            <p class="hint">Écart RVB sous lequel un pixel est considéré comme du fond. Si le fond n'est pas bien retiré, augmentez-la.</p>
+          </div>
+          <div class="field">
+            <span class="label">Fond de sortie</span>
+            <div class="segmented">
+              <label><input type="radio" name="output" value="transparent" checked> Transparent</label>
+              <label><input type="radio" name="output" value="magenta"> Magenta #ff00ff</label>
+            </div>
+          </div>
         </div>
-        <p class="hint">Écart RVB sous lequel un pixel est considéré comme du fond. Si le fond n'est pas bien retiré, augmentez-la.</p>
-      </div>
-      <div class="field">
-        <span class="label">Fond de sortie</span>
-        <div class="segmented">
-          <label><input type="radio" name="output" value="transparent" checked> Transparent</label>
-          <label><input type="radio" name="output" value="magenta"> Magenta #ff00ff</label>
-        </div>
-      </div>
+      </details>
 
-      <h2>Nettoyage</h2>
-      <label class="check"><input type="checkbox" data-setting="cleanup" checked> Retirer les pixels isolés et boucher les trous d'1 px</label>
-      <div class="field" data-row="minIsland">
-        <label for="island-n">Retirer les îlots de moins de</label>
-        <div class="range-row">
-          <input type="range" min="1" max="30" step="1" data-setting="minIsland" aria-label="Taille minimale des îlots">
-          <input type="number" id="island-n" min="1" max="500" step="1" data-setting="minIsland"><span class="unit">px</span>
+      <details class="section" open>
+        <summary>Nettoyage</summary>
+        <div class="section-body">
+          <label class="check"><input type="checkbox" data-setting="cleanup" checked> Retirer les pixels isolés et boucher les trous d'1 px</label>
+          <div class="field" data-row="minIsland">
+            <label for="island-n">Retirer les îlots de moins de</label>
+            <div class="range-row">
+              <input type="range" min="1" max="30" step="1" data-setting="minIsland" aria-label="Taille minimale des îlots">
+              <input type="number" id="island-n" min="1" max="500" step="1" data-setting="minIsland"><span class="unit">px</span>
+            </div>
+          </div>
         </div>
-      </div>
+      </details>
     </form>
 
     <section id="export" class="card">
@@ -175,8 +190,8 @@
       <h2>Exporter la palette</h2>
       <p class="hint" data-info="palette-export"></p>
       <div class="export-buttons two">
-        <button type="button" class="btn" data-palette="copy">Copier les codes hexa</button>
-        <button type="button" class="btn" data-palette="download">Télécharger .hex</button>
+        <button type="button" class="btn" data-palette="copy"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#copy"/></svg> Copier les codes hexa</button>
+        <button type="button" class="btn" data-palette="download"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#download"/></svg> Télécharger .hex</button>
       </div>
       <p class="hint">Les couleurs réellement présentes dans l'image, une par ligne (le fichier .hex est sans « # »).</p>
     </section>
@@ -184,6 +199,10 @@
     <p class="footnote muted">Retouches : choisissez une couleur du nuancier puis dessinez sur « Vrai pixel art ». Changer un réglage relance la conversion et efface les retouches.</p>
   </aside>
 </main>
+
+<footer class="page-footer">
+  <a href="cgu.html">Conditions d'utilisation</a>
+</footer>
 
 <noscript><p class="notice-body">Depix a besoin de JavaScript.</p></noscript>
 </body>

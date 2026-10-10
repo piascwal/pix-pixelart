@@ -72,6 +72,7 @@
   .stage { min-height: 0; }
   .panes { flex: 1; height: auto; min-height: 0; }
   .panel { min-height: 0; overflow-y: auto; padding-right: 2px; }
+  .page-footer { flex: none; padding: 4px 16px 8px; }
 }
 
 /* Sans image : pas d'aperçus vides ni de barre d'outils, juste la zone d'import,

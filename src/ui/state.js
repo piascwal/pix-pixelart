@@ -66,7 +66,7 @@ export const store = createStore({
   edited: null,        // image du résultat après retouches (ce qu'on affiche et exporte)
   editVersion: 0,      // incrémenté à chaque retouche
   history: { undo: 0, redo: 0 },
-  tool: 'move',        // move | pencil | eraser | picker | crop
+  tool: 'none',        // none | move | pencil | eraser | picker | crop (none : la page défile comme d'habitude)
   cropSel: null,       // rectangle de rognage en cours { x, y, w, h }, en pixels de la source
   paletteSel: null,    // couleur du nuancier sélectionnée (#rrggbb)
   paletteReplacing: false, // on attend le clic sur la couleur de remplacement

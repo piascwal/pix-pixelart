@@ -62,7 +62,7 @@ async function work(image, bitmap) {
 }
 
 function onImage({ image, bitmap, name }) {
-  store.set({ original: { image, bitmap }, sourceName: name, tool: 'move' });
+  store.set({ original: { image, bitmap }, sourceName: name, tool: 'none' });
   work(image, bitmap);
 }
 
@@ -84,7 +84,7 @@ function applyCrop({ x, y, w, h }) {
   canvas.width = w;
   canvas.height = h;
   canvas.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(cropped.data), w, h), 0, 0);
-  store.set({ tool: 'move' });
+  store.set({ tool: 'none' });
   work(cropped, canvas);
 }
 
@@ -157,9 +157,18 @@ setupTooltips();
 
 /* ---------------------------------------------------------- barre d'outils --- */
 
-for (const btn of document.querySelectorAll('[data-tool]')) {
-  btn.addEventListener('click', () => store.set({ tool: btn.dataset.tool }));
+// un second clic sur l'outil actif le désactive (retour au défilement normal)
+for (const btn of document.querySelectorAll('button[data-tool]')) {
+  btn.addEventListener('click', () =>
+    store.set((s) => ({ tool: s.tool === btn.dataset.tool ? 'none' : btn.dataset.tool })));
 }
+
+// sections de réglages : repliées sur téléphone, ouvertes sur ordinateur
+const sections = document.querySelectorAll('details.section');
+const narrow = window.matchMedia('(max-width: 999px)');
+const applyLayout = () => sections.forEach((d) => { d.open = !narrow.matches; });
+applyLayout();
+narrow.addEventListener('change', applyLayout);
 $('#undo').addEventListener('click', editor.undo);
 $('#redo').addEventListener('click', editor.redo);
 $('#zoom-in').addEventListener('click', viewer.zoomIn);
@@ -168,7 +177,7 @@ $('#zoom-fit').addEventListener('click', viewer.fit);
 $('#zoom-all').addEventListener('click', viewer.fitAll);
 $('#show-grid').addEventListener('change', (e) =>
   store.set((s) => ({ view: { ...s.view, grid: e.target.checked } })));
-for (const btn of document.querySelectorAll('[data-mode]')) {
+for (const btn of document.querySelectorAll('button[data-mode]')) {
   btn.addEventListener('click', () => store.set((s) => ({ view: { ...s.view, mode: btn.dataset.mode } })));
 }
 
@@ -196,18 +205,16 @@ function render() {
   document.body.classList.toggle('has-result', Boolean(s.result));
   $('#stage').dataset.mode = s.view.mode;
   $('#stage').dataset.tool = s.tool;
-  for (const btn of document.querySelectorAll('[data-tool]')) btn.setAttribute('aria-pressed', String(btn.dataset.tool === s.tool));
-  for (const btn of document.querySelectorAll('[data-mode]')) btn.setAttribute('aria-pressed', String(btn.dataset.mode === s.view.mode));
+  for (const btn of document.querySelectorAll('button[data-tool]')) btn.setAttribute('aria-pressed', String(btn.dataset.tool === s.tool));
+  for (const btn of document.querySelectorAll('button[data-mode]')) btn.setAttribute('aria-pressed', String(btn.dataset.mode === s.view.mode));
   $('#undo').disabled = !s.history.undo;
   $('#redo').disabled = !s.history.redo;
   $('#show-grid').checked = s.view.grid;
   $('#current-color').style.background = s.color ? `rgb(${s.color.join(',')})` : 'transparent';
 
   const hint = $('#hint');
-  hint.textContent = s.tool === 'crop'
-    ? (s.cropSel
-      ? `Sélection : ${s.cropSel.w} × ${s.cropSel.h} px — « Rogner ici » pour valider.`
-      : 'Rognage : tracez un rectangle sur l’original.')
+  hint.textContent = s.tool === 'crop' && s.cropSel
+    ? `Sélection : ${s.cropSel.w} × ${s.cropSel.h} px — « Rogner ici » pour valider.`
     : '';
 
   const status = $('#status');

@@ -5,7 +5,8 @@
 //
 // Gestes :
 //   souris   glisser = déplacer · molette = zoom (Ctrl + molette si la page défile)
-//   tactile  1 doigt = déplacer (ou dessiner / tracer le rognage selon l'outil)
+//   tactile  sans outil : la page défile normalement
+//            avec un outil : 1 doigt = déplacer (main), dessiner ou tracer le rognage
 //            2 doigts = pincer pour zoomer, glisser pour faire défiler la page
 
 import { gridLines } from '../core/gridDetect.js';
@@ -268,6 +269,9 @@ export function createViewer(canvases, store, hooks) {
     }, { passive: false });
 
     canvas.addEventListener('pointerdown', (e) => {
+      // sans outil, un doigt ou un stylet ne touche pas à l'image : le navigateur
+      // fait défiler la page (CSS touch-action: auto). La souris peut toujours déplacer.
+      if (e.pointerType !== 'mouse' && store.get().tool === 'none') return;
       canvas.setPointerCapture(e.pointerId);
       pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (pointers.size === 2) {

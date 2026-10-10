@@ -9,6 +9,7 @@ import { toHex } from '../core/image.js';
 import { EMPTY_RULES } from '../core/palette.js';
 import { watch } from './state.js';
 import { copyText, toast } from './clipboard.js';
+import { icon } from './icons.js';
 
 const el = (tag, className, text) => {
   const node = document.createElement(tag);
@@ -17,8 +18,10 @@ const el = (tag, className, text) => {
   return node;
 };
 
-function button(label, onClick, { primary = false, disabled = false } = {}) {
-  const b = el('button', 'btn btn-small' + (primary ? ' btn-primary' : ''), label);
+function button(label, onClick, { primary = false, disabled = false, icon: name } = {}) {
+  const b = el('button', 'btn btn-small' + (primary ? ' btn-primary' : ''));
+  if (name) b.append(icon(name));
+  b.append(label);
   b.type = 'button';
   b.disabled = disabled;
   b.addEventListener('click', onClick);
@@ -131,7 +134,7 @@ export function createPaletteView(container, detail, store) {
     names.append(el('code', 'detail-hex', hex), el('span', 'hint', `rvb(${rgb.join(', ')})`));
     const copy = button('Copier', async () => {
       toast((await copyText(hex)) ? `${hex} copié` : 'Copie impossible');
-    });
+    }, { icon: 'copy' });
     head.append(big, names, copy);
 
     const status = el('p', 'hint');
@@ -154,16 +157,16 @@ export function createPaletteView(container, detail, store) {
 
     const actions = el('div', 'detail-actions');
     if (!excluded) {
-      actions.append(button('✏️ Dessiner avec', () => store.set({ color: rgb, tool: 'pencil' }), { primary: true }));
+      actions.append(button('Dessiner avec', () => store.set({ color: rgb, tool: 'pencil' }), { primary: true, icon: 'pencil' }));
     }
     actions.append(
       excluded
         ? button('Utiliser à nouveau', () => toggleExcluded(hex))
-        : button('Ne pas utiliser', () => toggleExcluded(hex), { disabled: active.length <= 1 }),
+        : button('Ne pas utiliser', () => toggleExcluded(hex), { disabled: active.length <= 1, icon: 'ban' }),
       target
         ? button('Ne plus remplacer', () => clearReplacement(hex))
         : button('Remplacer par…', () => store.set({ paletteReplacing: true }),
-          { disabled: excluded || active.length <= 1 }),
+          { disabled: excluded || active.length <= 1, icon: 'replace' }),
     );
     detail.append(actions);
   }

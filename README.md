@@ -8,8 +8,8 @@ Tout se passe dans le navigateur : aucune image n'est envoyée à un serveur. Fo
 
 ## Utilisation
 
-1. **Importer** une image PNG, JPG ou WebP : glisser-déposer, bouton « Choisir une image », ou coller (Ctrl+V). Le bouton « 📂 Autre image » de la barre d'outils permet d'en charger une autre ensuite.
-2. **Rogner** (✂️) si besoin : tracez un rectangle sur l'original, puis « Rogner ici » (Entrée). La grille, le fond et la palette sont ré-analysés sur cette zone seule. « ↩ Image entière » restaure l'original.
+1. **Importer** une image PNG, JPG ou WebP : glisser-déposer, bouton « Choisir une image », ou coller (Ctrl+V). Le bouton « Autre image » (icône dossier) de la barre d'outils permet d'en charger une autre ensuite.
+2. **Rogner** (outil ciseaux) si besoin : tracez un rectangle sur l'original, puis « Rogner ici » (Entrée). La grille, le fond et la palette sont ré-analysés sur cette zone seule. « Image entière » restaure l'original.
 3. **Vérifier la grille** : Depix détecte la taille d'une case et le décalage de la grille, puis les superpose à l'original (lignes cyan). Si elles ne tombent pas sur les bords des « gros pixels », corrigez avec les curseurs *Taille d'une case*, *Décalage horizontal* et *Décalage vertical*.
 4. **Régler** le nombre de couleurs (48 à 56 conviennent souvent), la tolérance du fond, et le nettoyage des pixels isolés.
 5. **Gérer la palette** : touchez une couleur du nuancier pour voir son code hexa (bouton *Copier*), puis *Ne pas utiliser* (ses pixels prennent la couleur restante la plus proche), *Remplacer par…* (puis touchez la couleur de remplacement) ou *Dessiner avec*. Les couleurs écartées sont barrées, les remplacées portent une pastille de leur remplaçante. Changer le nombre de couleurs réinitialise ces choix.
@@ -17,9 +17,11 @@ Tout se passe dans le navigateur : aucune image n'est envoyée à un serveur. Fo
 7. **Retoucher** si besoin : crayon, gomme, pipette, annuler / rétablir (Ctrl+Z / Ctrl+Y).
 8. **Exporter** en PNG natif ou agrandi ×2 / ×4 / ×8 (plus proche voisin), fond transparent ou magenta #ff00ff ; et la **palette** : copier les codes hexa (un par ligne) ou télécharger un fichier `.hex` (un code par ligne, sans `#`).
 
-Un appui long (téléphone) ou un survol (souris) sur une icône en affiche le nom.
+Un appui long (téléphone) ou un survol (souris) sur une icône en affiche le nom. Sur téléphone, les sections de réglages (Grille, Palette, Fond, Nettoyage) sont repliées au départ.
 
-**Gestes** : à la souris, glisser déplace et la molette zoome (Ctrl + molette si la page défile). Au doigt, **un doigt déplace** l'image (ou dessine / trace le rognage selon l'outil), **deux doigts** pincent pour zoomer et, en glissant, font défiler la page.
+**Gestes** : aucun outil n'est sélectionné au départ, et la page défile alors comme d'habitude (un doigt suffit sur l'image). Un outil se sélectionne en le touchant, et se désélectionne en le touchant à nouveau.
+- À la souris : glisser déplace, la molette zoome (Ctrl + molette si la page défile).
+- Au doigt, avec un outil actif : **un doigt agit sur l'image** (main : déplacer ; crayon, gomme, pipette : dessiner ; ciseaux : tracer le rognage), **deux doigts** pincent pour zoomer et, en glissant, font défiler la page.
 
 Raccourcis : `M` déplacer, `B` crayon, `E` gomme, `I` pipette, `C` rogner, `+` / `-` zoom, `0` cadrer le résultat.
 
@@ -27,7 +29,7 @@ Raccourcis : `M` déplacer, `B` crayon, `E` gomme, `I` pipette, `C` rogner, `+` 
 
 ## Ce qui est garanti, et ce qui ne l'est pas
 
-(Ce texte est aussi dans l'application, sur la page `cgu.html` « Conditions d'utilisation », liée depuis l'en-tête.)
+(Ce texte est aussi dans l'application, sur la page `cgu.html` « Conditions d'utilisation », liée en bas de la page.)
 
 La sortie est **techniquement** du vrai pixel art, toujours. Sa **fidélité** au dessin d'origine, elle, n'est pas garantie :
 
@@ -82,6 +84,10 @@ Prévu dans l'architecture, pas encore codé :
 - **grilles qui dérivent** : la conversion ne voit que des listes de bords de cases (`gridLines`) ; un recalage ligne par ligne / colonne par colonne n'aura qu'à produire des bords irréguliers ;
 - **traitement par lot** : le cœur est fait de fonctions pures, `depix()` s'appelle en boucle ;
 - **planche de sprites** : découper le résultat par composantes connexes (voir `cleanup.js`).
+
+## Icônes
+
+Icônes [Lucide](https://lucide.dev) (licence ISC, texte dans `assets/LICENSE-lucide.txt`), regroupées dans `assets/icons.svg` et dessinées en SVG : pas d'emoji, donc le même rendu partout.
 
 ## Tests
 
