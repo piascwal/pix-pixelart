@@ -2,18 +2,24 @@
 // (zoom + position exprimés en pixels de l'image source). Le résultat est
 // dessiné case par case par-dessus les mêmes coordonnées, donc l'original et
 // sa conversion restent alignés quand on zoome ou qu'on se déplace.
+//
+// Gestes :
+//   souris   glisser = déplacer · molette = zoom (Ctrl + molette si la page défile)
+//   tactile  1 doigt = déplacer (ou dessiner / tracer le rognage selon l'outil)
+//            2 doigts = pincer pour zoomer, glisser pour faire défiler la page
 
 import { gridLines } from '../core/gridDetect.js';
 import { watch } from './state.js';
 
 const MIN_SCALE = 0.05;
 const MAX_SCALE = 64;
+const EDIT_TOOLS = new Set(['pencil', 'eraser', 'picker']);
 
 /**
  * @param {{ original: HTMLCanvasElement, result: HTMLCanvasElement }} canvases
  * @param {object} store
- * @param {{ onEditPointer: (phase: 'down'|'move'|'up', cell: {x,y}|null) => void }} hooks
- *   appelé quand on dessine sur le résultat avec un outil d'édition
+ * @param {{ onEditPointer: (phase: 'down'|'move'|'up', cell: {x,y}|null) => void,
+ *           onCropPointer: (phase: 'down'|'move'|'up'|'cancel', pt: {x,y}|null) => void }} hooks
  */
 export function createViewer(canvases, store, hooks) {
   const cam = { scale: 1, cx: 0, cy: 0 };
@@ -97,6 +103,7 @@ export function createViewer(canvases, store, hooks) {
       ctx.drawImage(s.sourceBitmap, ox, oy, s.source.width * cam.scale, s.source.height * cam.scale);
       if (s.view.grid) drawGrid(pane, gridLines(s.settings, s.source.width, s.source.height), 'rgba(0, 255, 255, 0.55)', 4);
       if (s.result) drawFrame(pane, s.result.lines);
+      if (s.cropSel) drawCropSelection(pane, s.cropSel, s.source);
       return;
     }
 
@@ -116,7 +123,7 @@ export function createViewer(canvases, store, hooks) {
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(resultBitmap, x0, y0, x1 - x0, y1 - y0);
     // grille fine pour retoucher quand on est assez près
-    if (s.tool !== 'move' && s.settings.period * cam.scale >= 10) {
+    if (EDIT_TOOLS.has(s.tool) && s.settings.period * cam.scale >= 10) {
       drawGrid(pane, s.result.lines, 'rgba(127, 127, 127, 0.35)', 10);
     }
   }
@@ -152,6 +159,25 @@ export function createViewer(canvases, store, hooks) {
     ctx.setLineDash([6, 4]);
     ctx.strokeStyle = '#ffd400';
     ctx.lineWidth = 1.5;
+    ctx.strokeRect(Math.round(x0) + 0.5, Math.round(y0) + 0.5, Math.round(x1 - x0), Math.round(y1 - y0));
+    ctx.setLineDash([]);
+  }
+
+  /** Rectangle de rognage : l'extérieur est assombri. */
+  function drawCropSelection(pane, sel, source) {
+    const { ctx } = pane;
+    const [x0, y0] = toScreen(pane, sel.x, sel.y);
+    const [x1, y1] = toScreen(pane, sel.x + sel.w, sel.y + sel.h);
+    const [ix0, iy0] = toScreen(pane, 0, 0);
+    const [ix1, iy1] = toScreen(pane, source.width, source.height);
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+    ctx.fillRect(ix0, iy0, ix1 - ix0, y0 - iy0);                 // haut
+    ctx.fillRect(ix0, y1, ix1 - ix0, iy1 - y1);                  // bas
+    ctx.fillRect(ix0, y0, x0 - ix0, y1 - y0);                    // gauche
+    ctx.fillRect(x1, y0, ix1 - x1, y1 - y0);                     // droite
+    ctx.setLineDash([8, 5]);
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
     ctx.strokeRect(Math.round(x0) + 0.5, Math.round(y0) + 0.5, Math.round(x1 - x0), Math.round(y1 - y0));
     ctx.setLineDash([]);
   }
@@ -194,11 +220,13 @@ export function createViewer(canvases, store, hooks) {
     redraw();
   }
 
+  /** Cadre le sprite (sans les poussières éloignées), ou l'image entière à défaut. */
   function fitBest() {
     const { result, source } = store.get();
-    if (result && result.image.width) {
+    if (result && result.image.width && result.image.height) {
       const { xs, ys } = result.lines;
-      fit({ x: xs[0], y: ys[0], w: xs[xs.length - 1] - xs[0], h: ys[ys.length - 1] - ys[0] });
+      const f = result.focus || { x0: 0, y0: 0, x1: xs.length - 1, y1: ys.length - 1 };
+      fit({ x: xs[f.x0], y: ys[f.y0], w: xs[f.x1] - xs[f.x0], h: ys[f.y1] - ys[f.y0] });
     } else if (source) {
       fit({ x: 0, y: 0, w: source.width, h: source.height });
     }
@@ -208,69 +236,89 @@ export function createViewer(canvases, store, hooks) {
 
   for (const pane of panes) {
     const { canvas } = pane;
-    const pointers = new Map();
+    const pointers = new Map(); // id → position à l'écran (clientX / clientY)
     let pinch = null;
-    let drawing = false;
+    let gesture = null;         // 'edit' | 'crop' | null
 
-    const local = (e) => {
+    const localOf = (x, y) => {
       const r = canvas.getBoundingClientRect();
-      return [e.clientX - r.left, e.clientY - r.top];
+      return [x - r.left, y - r.top];
+    };
+    const sourcePoint = (e) => {
+      const [sx, sy] = toSource(pane, ...localOf(e.clientX, e.clientY));
+      return { x: sx, y: sy };
     };
 
+    function endGesture() {
+      if (gesture === 'edit') hooks.onEditPointer('up', null);
+      else if (gesture === 'crop') hooks.onCropPointer('cancel', null);
+      gesture = null;
+    }
+
     canvas.addEventListener('wheel', (e) => {
+      // si la page défile (téléphone, petite fenêtre), la molette la fait défiler ;
+      // Ctrl + molette (ou pincement au pavé tactile) zoome dans tous les cas
+      const pageScrolls = document.documentElement.scrollHeight > window.innerHeight + 1;
+      const zoomKey = e.ctrlKey || e.metaKey;
+      if (pageScrolls && !zoomKey) return;
       e.preventDefault();
-      const [px, py] = local(e);
-      zoomAt(pane, Math.pow(1.0018, -e.deltaY * (e.deltaMode === 1 ? 30 : 1)), px, py);
+      const [px, py] = localOf(e.clientX, e.clientY);
+      const speed = zoomKey ? 0.01 : 0.0018;
+      zoomAt(pane, Math.exp(-e.deltaY * (e.deltaMode === 1 ? 30 : 1) * speed), px, py);
     }, { passive: false });
 
     canvas.addEventListener('pointerdown', (e) => {
       canvas.setPointerCapture(e.pointerId);
-      pointers.set(e.pointerId, local(e));
+      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (pointers.size === 2) {
-        if (drawing) { drawing = false; hooks.onEditPointer('up', null); }
+        endGesture();
         const [a, b] = [...pointers.values()];
-        pinch = { dist: Math.hypot(a[0] - b[0], a[1] - b[1]), mid: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] };
+        pinch = { dist: Math.hypot(a.x - b.x, a.y - b.y), mid: [(a.x + b.x) / 2, (a.y + b.y) / 2] };
         return;
       }
-      const editing = pane.kind === 'result' && store.get().tool !== 'move' && e.button === 0;
-      if (editing) {
-        drawing = true;
-        hooks.onEditPointer('down', cellAt(pane, ...local(e)));
+      if (pointers.size > 2 || e.button !== 0) return;
+      const { tool } = store.get();
+      if (pane.kind === 'result' && EDIT_TOOLS.has(tool)) {
+        gesture = 'edit';
+        hooks.onEditPointer('down', cellAt(pane, ...localOf(e.clientX, e.clientY)));
+      } else if (pane.kind === 'original' && tool === 'crop') {
+        gesture = 'crop';
+        hooks.onCropPointer('down', sourcePoint(e));
       }
     });
 
     canvas.addEventListener('pointermove', (e) => {
-      if (!pointers.has(e.pointerId)) {
-        canvas.style.cursor = pane.kind === 'result' && store.get().tool !== 'move' ? 'crosshair' : 'grab';
-        return;
-      }
       const prev = pointers.get(e.pointerId);
-      const cur = local(e);
+      if (!prev) return;
+      const cur = { x: e.clientX, y: e.clientY };
       pointers.set(e.pointerId, cur);
-      if (pinch && pointers.size === 2) {
+
+      if (pointers.size === 2 && pinch) {
         const [a, b] = [...pointers.values()];
-        const dist = Math.hypot(a[0] - b[0], a[1] - b[1]);
-        const mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
-        cam.cx -= (mid[0] - pinch.mid[0]) / cam.scale;
-        cam.cy -= (mid[1] - pinch.mid[1]) / cam.scale;
-        if (pinch.dist > 0) zoomAt(pane, dist / pinch.dist, mid[0], mid[1]);
+        const dist = Math.hypot(a.x - b.x, a.y - b.y);
+        const mid = [(a.x + b.x) / 2, (a.y + b.y) / 2];
+        // glisser à deux doigts fait défiler la page, écarter / pincer zoome
+        window.scrollBy(pinch.mid[0] - mid[0], pinch.mid[1] - mid[1]);
+        if (pinch.dist > 0 && dist > 0) zoomAt(pane, dist / pinch.dist, ...localOf(mid[0], mid[1]));
         pinch = { dist, mid };
-        redraw();
-      } else if (drawing) {
-        hooks.onEditPointer('move', cellAt(pane, ...cur));
+      } else if (gesture === 'edit') {
+        hooks.onEditPointer('move', cellAt(pane, ...localOf(cur.x, cur.y)));
+      } else if (gesture === 'crop') {
+        hooks.onCropPointer('move', sourcePoint(e));
       } else if (pointers.size === 1) {
-        cam.cx -= (cur[0] - prev[0]) / cam.scale;
-        cam.cy -= (cur[1] - prev[1]) / cam.scale;
+        cam.cx -= (cur.x - prev.x) / cam.scale;
+        cam.cy -= (cur.y - prev.y) / cam.scale;
         redraw();
       }
     });
 
     const release = (e) => {
-      pointers.delete(e.pointerId);
+      if (!pointers.delete(e.pointerId)) return;
       if (pointers.size < 2) pinch = null;
-      if (drawing && pointers.size === 0) {
-        drawing = false;
-        hooks.onEditPointer('up', null);
+      if (pointers.size === 0) {
+        if (gesture === 'edit') hooks.onEditPointer('up', null);
+        else if (gesture === 'crop') hooks.onCropPointer('up', null);
+        gesture = null;
       }
     };
     canvas.addEventListener('pointerup', release);
@@ -283,18 +331,18 @@ export function createViewer(canvases, store, hooks) {
 
   /* ----------------------------------------------------- abonnements -- */
 
+  let fitNextResult = false;
   watch(store, ['source'], () => {
     resize();
     const { source } = store.get();
     if (source) fit({ x: 0, y: 0, w: source.width, h: source.height });
+    fitNextResult = true;
   });
-  let fitNextResult = false;
-  watch(store, ['source'], () => { fitNextResult = true; });
   watch(store, ['result'], () => {
     if (fitNextResult && store.get().result) { fitNextResult = false; fitBest(); }
   });
   watch(store, ['edited', 'editVersion'], () => { updateResultBitmap(); redraw(); });
-  watch(store, ['settings', 'view', 'tool'], redraw);
+  watch(store, ['settings', 'view', 'tool', 'cropSel'], redraw);
   watch(store, ['view'], () => requestAnimationFrame(resize));
 
   resize();

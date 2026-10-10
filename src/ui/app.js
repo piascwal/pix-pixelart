@@ -1,12 +1,16 @@
 // Point d'entrée : relie l'état, le worker et les modules d'interface.
 
+import { crop } from '../core/image.js';
+import { EMPTY_RULES } from '../core/palette.js';
 import { store, watch, DEFAULT_SETTINGS } from './state.js';
 import { setupImporter } from './importer.js';
 import { createViewer } from './viewer.js';
 import { createControls } from './controls.js';
 import { createPaletteView } from './paletteView.js';
 import { createEditor } from './editor.js';
+import { createCropper } from './cropper.js';
 import { createExporter } from './exporter.js';
+import { setupTooltips } from './tooltips.js';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -35,16 +39,19 @@ worker.onerror = (e) => store.set({ error: `Erreur du traitement : ${e.message |
 
 /* ------------------------------------------------- import & analyse --- */
 
-async function onImage({ image, bitmap, name }) {
-  store.set({
-    source: image, sourceBitmap: bitmap, sourceName: name,
-    detected: null, result: null, error: '', busy: true,
-  });
+/** Fait de `image` l'image de travail : analyse (grille + fond), puis conversion. */
+async function work(image, bitmap) {
+  store.set((s) => ({
+    source: image, sourceBitmap: bitmap,
+    detected: null, result: null, cropSel: null, error: '', busy: true,
+    paletteSel: null, paletteReplacing: false,
+    settings: { ...s.settings, paletteRules: EMPTY_RULES },
+  }));
   try {
-    // copie : l'original reste côté interface pour l'affichage
+    // copie : l'image reste côté interface pour l'affichage
     const copy = { width: image.width, height: image.height, data: new Uint8ClampedArray(image.data) };
     const { grid, background } = await ask({ type: 'analyze', image: copy }, [copy.data.buffer]);
-    if (store.get().source !== image) return; // une autre image a été chargée entre-temps
+    if (store.get().source !== image) return; // une autre image a pris la place entre-temps
     store.set((s) => ({
       detected: { grid, background },
       settings: { ...s.settings, period: grid.period, offsetX: grid.offsetX, offsetY: grid.offsetY },
@@ -54,14 +61,37 @@ async function onImage({ image, bitmap, name }) {
   }
 }
 
-const importer = setupImporter({
+function onImage({ image, bitmap, name }) {
+  store.set({ original: { image, bitmap }, sourceName: name, tool: 'move' });
+  work(image, bitmap);
+}
+
+setupImporter({
   dropTarget: document.body,
   fileInput: $('#file'),
   onImage,
   onError: (message) => store.set({ error: message }),
 });
 
-$('#example').addEventListener('click', () => importer.loadUrl('tests/fixtures/padel-ia.jpg', 'padel-ia.jpg'));
+$('#pick-another').addEventListener('click', () => $('#file').click());
+
+/* ----------------------------------------------------------- rognage --- */
+
+function applyCrop({ x, y, w, h }) {
+  const { source } = store.get();
+  const cropped = crop(source, x, y, w, h);
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  canvas.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(cropped.data), w, h), 0, 0);
+  store.set({ tool: 'move' });
+  work(cropped, canvas);
+}
+
+function restoreOriginal() {
+  const { original } = store.get();
+  if (original) work(original.image, original.bitmap);
+}
 
 /* -------------------------------------------------------- conversion --- */
 
@@ -86,6 +116,7 @@ async function convertNow() {
         background: detected.background,
         tolerance: settings.tolerance,
         colors: Math.round(settings.colors),
+        paletteRules: settings.paletteRules,
         cleanup: settings.cleanup ? { isolated: true, minIsland: Math.round(settings.minIsland), fillHoles: true } : null,
       },
     });
@@ -106,14 +137,23 @@ watch(store, ['settings'], (s, prev) => {
 /* ------------------------------------------------------- modules UI --- */
 
 const editor = createEditor(store);
+const cropper = createCropper(store, {
+  applyBtn: $('#crop-apply'),
+  cancelBtn: $('#crop-cancel'),
+  resetBtn: $('#crop-reset'),
+  actions: $('#crop-actions'),
+  onApply: applyCrop,
+  onReset: restoreOriginal,
+});
 const viewer = createViewer(
   { original: $('#view-original'), result: $('#view-result') },
   store,
-  { onEditPointer: editor.onEditPointer },
+  { onEditPointer: editor.onEditPointer, onCropPointer: cropper.onCropPointer },
 );
 createControls($('#controls'), store);
-createPaletteView($('#palette'), store);
+createPaletteView($('#palette'), $('#swatch-detail'), store);
 createExporter($('#export'), store);
+setupTooltips();
 
 /* ---------------------------------------------------------- barre d'outils --- */
 
@@ -132,11 +172,17 @@ for (const btn of document.querySelectorAll('[data-mode]')) {
   btn.addEventListener('click', () => store.set((s) => ({ view: { ...s.view, mode: btn.dataset.mode } })));
 }
 
+// on ne rogne que sur l'original : on l'affiche si besoin
+watch(store, ['tool'], (s) => {
+  if (s.tool === 'crop' && s.view.mode === 'result') store.set({ view: { ...s.view, mode: 'side' } });
+});
+
 window.addEventListener('keydown', (e) => {
   if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest('input, textarea, select')) return;
-  const tools = { m: 'move', h: 'move', b: 'pencil', p: 'pencil', e: 'eraser', i: 'picker' };
+  const s = store.get();
+  const tools = { m: 'move', h: 'move', b: 'pencil', p: 'pencil', e: 'eraser', i: 'picker', c: 'crop' };
   const tool = tools[e.key.toLowerCase()];
-  if (tool && store.get().result) store.set({ tool });
+  if (tool && (tool === 'crop' ? s.source : s.result)) store.set({ tool });
   if (e.key === '+') viewer.zoomIn();
   if (e.key === '-') viewer.zoomOut();
   if (e.key === '0') viewer.fit();
@@ -157,6 +203,13 @@ function render() {
   $('#show-grid').checked = s.view.grid;
   $('#current-color').style.background = s.color ? `rgb(${s.color.join(',')})` : 'transparent';
 
+  const hint = $('#hint');
+  hint.textContent = s.tool === 'crop'
+    ? (s.cropSel
+      ? `Sélection : ${s.cropSel.w} × ${s.cropSel.h} px — « Rogner ici » pour valider.`
+      : 'Rognage : tracez un rectangle sur l’original.')
+    : '';
+
   const status = $('#status');
   status.classList.toggle('is-error', Boolean(s.error));
   if (s.error) status.textContent = s.error;
@@ -165,7 +218,11 @@ function render() {
     const { width, height, filled, colors } = s.result.stats;
     status.textContent = `${width} × ${height} px · ${colors} couleurs · ${filled} pixels pleins`;
   } else status.textContent = s.source ? '' : 'Aucune image';
-  $('#source-name').textContent = s.source ? `${s.sourceName} — ${s.source.width} × ${s.source.height} px` : '';
+
+  const cropped = s.original && s.source !== s.original.image;
+  $('#source-name').textContent = s.source
+    ? `${s.sourceName} — ${s.source.width} × ${s.source.height} px${cropped ? ' (rogné)' : ''}`
+    : '';
 }
 
 store.subscribe(render);

@@ -2,7 +2,10 @@
 // fond transparent ou magenta #ff00ff selon le réglage.
 
 import { upscale, flatten } from '../core/upscale.js';
+import { usedColors } from '../core/palette.js';
+import { toHex } from '../core/image.js';
 import { watch } from './state.js';
+import { copyText, toast } from './clipboard.js';
 
 export function toPngBlob(img) {
   const canvas = document.createElement('canvas');
@@ -23,9 +26,16 @@ function download(blob, name) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+/** Couleurs réellement présentes dans l'image (retouches comprises), du plus sombre au plus clair. */
+export function paletteHexes(img) {
+  return usedColors(img).map(toHex);
+}
+
 export function createExporter(root, store) {
   const buttons = root.querySelectorAll('[data-export]');
+  const paletteButtons = root.querySelectorAll('[data-palette]');
   const info = root.querySelector('[data-info="export"]');
+  const paletteInfo = root.querySelector('[data-info="palette-export"]');
 
   for (const btn of buttons) {
     btn.addEventListener('click', async () => {
@@ -39,9 +49,27 @@ export function createExporter(root, store) {
     });
   }
 
+  for (const btn of paletteButtons) {
+    btn.addEventListener('click', async () => {
+      const { edited, sourceName } = store.get();
+      if (!edited?.width) return;
+      const hexes = paletteHexes(edited);
+      if (btn.dataset.palette === 'copy') {
+        toast((await copyText(hexes.join('\n'))) ? `${hexes.length} codes copiés` : 'Copie impossible');
+        return;
+      }
+      // format .hex : un code par ligne, sans « # » (Aseprite, Lospec…)
+      const text = hexes.map((h) => h.slice(1)).join('\n') + '\n';
+      const base = (sourceName || 'image').replace(/\.[a-z0-9]+$/i, '');
+      download(new Blob([text], { type: 'text/plain' }), `${base}-palette.hex`);
+    });
+  }
+
   function render() {
     const { edited } = store.get();
     const ok = Boolean(edited?.width);
+    for (const btn of paletteButtons) btn.disabled = !ok;
+    paletteInfo.textContent = ok ? `${paletteHexes(edited).length} couleurs dans l'image` : '';
     for (const btn of buttons) {
       btn.disabled = !ok;
       const f = Number(btn.dataset.export);

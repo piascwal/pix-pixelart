@@ -15,53 +15,41 @@
 <body>
 
 <header class="topbar">
-  <div class="brand">
-    <span class="brand-logo" aria-hidden="true"></span>
-    <div>
-      <h1>Depix</h1>
-      <p class="tagline">Du faux pixel art d'IA au vrai pixel art</p>
-    </div>
-  </div>
-  <div class="topbar-actions">
-    <label class="btn btn-primary">
-      <input type="file" id="file" accept="image/png,image/jpeg,image/webp" hidden>
-      Choisir une image
-    </label>
-  </div>
+  <span class="brand-logo" aria-hidden="true"></span>
+  <h1>Depix</h1>
+  <p class="tagline">Du faux pixel art d'IA au vrai pixel art</p>
 </header>
 
-<details class="notice">
-  <summary>🔒 Tout reste dans votre navigateur · Ce que Depix garantit (et ne garantit pas)</summary>
-  <div class="notice-body">
-    <p><strong>Garanti :</strong> la sortie est techniquement du <em>vrai</em> pixel art — chaque case devient un pixel d'une seule couleur, sur une grille régulière, avec une palette limitée, sans flou ni dégradé parasite. Aucune image n'est envoyée sur un serveur.</p>
-    <p><strong>Pas garanti :</strong> la <em>fidélité</em> au dessin d'origine. Les images d'IA trichent souvent :</p>
-    <ul>
-      <li>la grille <strong>dérive</strong> (les cases n'ont pas toutes la même taille d'un bout à l'autre) ;</li>
-      <li>des <strong>tailles de pixels mélangées</strong> (yeux, reflets en demi-pixels) ;</li>
-      <li>du <strong>tramage</strong> volontaire pris pour du bruit ;</li>
-      <li>des images très <strong>floues ou compressées</strong>.</li>
-    </ul>
-    <p>D'où les réglages manuels de la grille et le mini éditeur pour retoucher le résultat.</p>
-  </div>
-</details>
+<section class="notice" aria-label="À savoir">
+  <p>🔒 <strong>Tout reste dans votre navigateur</strong> : aucune image n'est envoyée à un serveur.</p>
+  <p><strong>Garanti :</strong> la sortie est du vrai pixel art — une case = un pixel d'une seule couleur, grille régulière, palette limitée, sans flou ni dégradé parasite.</p>
+  <p><strong>Pas garanti :</strong> la fidélité au dessin d'origine — grille qui dérive, pixels de tailles mélangées (yeux, reflets en demi-pixels), tramage pris pour du bruit, image très floue ou compressée. D'où les réglages manuels et le mini éditeur.</p>
+</section>
 
 <main class="app">
   <section class="stage" id="stage" data-mode="side" data-tool="move" aria-label="Aperçu">
     <div class="toolbar" role="toolbar" aria-label="Outils">
       <div class="tool-group needs-result">
-        <button type="button" class="icon-btn" data-tool="move" title="Déplacer (M)" aria-label="Déplacer">✋</button>
-        <button type="button" class="icon-btn" data-tool="pencil" title="Crayon (B)" aria-label="Crayon">✏️<span class="current-color" id="current-color"></span></button>
-        <button type="button" class="icon-btn" data-tool="eraser" title="Gomme (E)" aria-label="Gomme">🧽</button>
-        <button type="button" class="icon-btn" data-tool="picker" title="Pipette (I)" aria-label="Pipette">💧</button>
+        <button type="button" class="icon-btn" data-tool="move" data-tip="Déplacer l'image" aria-label="Déplacer l'image">✋</button>
+        <button type="button" class="icon-btn" data-tool="pencil" data-tip="Crayon : dessiner une case avec la couleur choisie" aria-label="Crayon">✏️<span class="current-color" id="current-color"></span></button>
+        <button type="button" class="icon-btn" data-tool="eraser" data-tip="Gomme : rendre une case transparente" aria-label="Gomme">🧽</button>
+        <button type="button" class="icon-btn" data-tool="picker" data-tip="Pipette : prendre la couleur d'une case" aria-label="Pipette">💧</button>
         <span class="sep"></span>
-        <button type="button" class="icon-btn" id="undo" title="Annuler (Ctrl+Z)" aria-label="Annuler">↶</button>
-        <button type="button" class="icon-btn" id="redo" title="Rétablir (Ctrl+Y)" aria-label="Rétablir">↷</button>
+        <button type="button" class="icon-btn" id="undo" data-tip="Annuler (Ctrl+Z)" aria-label="Annuler">↶</button>
+        <button type="button" class="icon-btn" id="redo" data-tip="Rétablir (Ctrl+Y)" aria-label="Rétablir">↷</button>
       </div>
       <div class="tool-group needs-image">
-        <button type="button" class="icon-btn" id="zoom-out" title="Dézoomer (−)" aria-label="Dézoomer">−</button>
-        <button type="button" class="icon-btn" id="zoom-in" title="Zoomer (+)" aria-label="Zoomer">+</button>
-        <button type="button" class="icon-btn text" id="zoom-fit" title="Cadrer le résultat (0)">Cadrer</button>
-        <button type="button" class="icon-btn text" id="zoom-all" title="Voir toute l'image">Tout</button>
+        <button type="button" class="icon-btn" data-tool="crop" data-tip="Rogner : ne garder qu'une zone de l'original" aria-label="Rogner">✂️</button>
+        <span id="crop-actions" class="tool-group" hidden>
+          <button type="button" class="btn btn-small btn-primary" id="crop-apply">Rogner ici</button>
+          <button type="button" class="btn btn-small" id="crop-cancel">Annuler</button>
+        </span>
+        <button type="button" class="btn btn-small" id="crop-reset" hidden>↩ Image entière</button>
+        <span class="sep"></span>
+        <button type="button" class="icon-btn" id="zoom-out" data-tip="Dézoomer (−)" aria-label="Dézoomer">−</button>
+        <button type="button" class="icon-btn" id="zoom-in" data-tip="Zoomer (+)" aria-label="Zoomer">+</button>
+        <button type="button" class="icon-btn text" id="zoom-fit" data-tip="Cadrer le sprite (0)">Cadrer</button>
+        <button type="button" class="icon-btn text" id="zoom-all" data-tip="Voir toute l'image">Tout</button>
         <span class="sep"></span>
         <div class="segmented" role="group" aria-label="Affichage">
           <button type="button" data-mode="side" aria-pressed="true">Avant | Après</button>
@@ -69,6 +57,7 @@
           <button type="button" data-mode="result">Après</button>
         </div>
         <label class="check"><input type="checkbox" id="show-grid" checked> Grille</label>
+        <button type="button" class="icon-btn text" id="pick-another" data-tip="Choisir une autre image" aria-label="Choisir une autre image">📂<span class="hide-narrow"> Autre image</span></button>
       </div>
     </div>
 
@@ -86,15 +75,24 @@
         <div class="dropzone-inner">
           <div class="dropzone-icon" aria-hidden="true"></div>
           <p class="dropzone-title">Glissez une image ici</p>
-          <p>ou collez-la (Ctrl+V), ou <label for="file" class="link">choisissez un fichier</label></p>
+          <p>ou collez-la (Ctrl+V)</p>
+          <label class="btn btn-primary">
+            <input type="file" id="file" accept="image/png,image/jpeg,image/webp" hidden>
+            Choisir une image
+          </label>
           <p class="muted">PNG, JPG ou WebP. Rien n'est envoyé : la conversion se fait sur votre appareil.</p>
-          <button type="button" class="btn" id="example">Essayer avec l'exemple</button>
         </div>
       </div>
     </div>
 
+    <p class="gesture-hint muted">
+      <span class="only-touch">1 doigt : déplacer · 2 doigts : pincer pour zoomer, glisser pour faire défiler la page</span>
+      <span class="only-mouse">Glisser : déplacer · Molette : zoom (Ctrl + molette si la page défile)</span>
+    </p>
+
     <div class="statusbar">
       <span id="source-name" class="muted"></span>
+      <span id="hint" class="muted"></span>
       <span id="status" role="status" aria-live="polite"></span>
     </div>
   </section>
@@ -133,9 +131,12 @@
           <input type="range" min="2" max="128" step="1" data-setting="colors" aria-label="Nombre de couleurs">
           <input type="number" id="colors-n" min="2" max="256" step="1" data-setting="colors">
         </div>
-        <p class="hint">48 à 56 conviennent souvent ; trop peu et les petites zones (un logo) disparaissent.</p>
+        <p class="hint">48 à 56 conviennent souvent ; trop peu et les petites zones (un logo) disparaissent. Changer ce nombre réinitialise les choix de couleurs ci-dessous.</p>
       </div>
       <div class="swatches" id="palette" aria-label="Nuancier"></div>
+      <p class="hint">Touchez une couleur pour voir son code, l'écarter ou la remplacer.</p>
+      <div class="swatch-detail" id="swatch-detail" hidden></div>
+      <button type="button" class="btn btn-small" data-action="palette-reset" hidden>↺ Réinitialiser les choix de couleurs</button>
 
       <h2>Fond</h2>
       <div class="field">
@@ -144,7 +145,7 @@
           <input type="range" min="0" max="250" step="1" data-setting="tolerance" aria-label="Tolérance du fond">
           <input type="number" id="tol-n" min="0" max="765" step="1" data-setting="tolerance">
         </div>
-        <p class="hint">Écart RVB sous lequel un pixel est considéré comme du fond.</p>
+        <p class="hint">Écart RVB sous lequel un pixel est considéré comme du fond. Si le fond n'est pas bien retiré, augmentez-la.</p>
       </div>
       <div class="field">
         <span class="label">Fond de sortie</span>
@@ -175,6 +176,14 @@
         <button type="button" class="btn" data-export="8">×8</button>
       </div>
       <p class="hint">Agrandissement au plus proche voisin : les pixels restent nets.</p>
+
+      <h2>Exporter la palette</h2>
+      <p class="hint" data-info="palette-export"></p>
+      <div class="export-buttons two">
+        <button type="button" class="btn" data-palette="copy">Copier les codes hexa</button>
+        <button type="button" class="btn" data-palette="download">Télécharger .hex</button>
+      </div>
+      <p class="hint">Les couleurs réellement présentes dans l'image, une par ligne (le fichier .hex est sans « # »).</p>
     </section>
 
     <p class="footnote muted">Retouches : choisissez une couleur du nuancier puis dessinez sur « Vrai pixel art ». Changer un réglage relance la conversion et efface les retouches.</p>

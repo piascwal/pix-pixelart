@@ -80,17 +80,20 @@
 .check { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.9rem; }
 .check input { width: 18px; height: 18px; accent-color: var(--accent); }
 
-/* ----- avertissement honnête ----- */
+/* ----- avertissement honnête (toujours visible) ----- */
 .notice {
+  display: grid;
+  gap: 4px;
   margin: 12px 12px 0;
+  padding: 10px 14px;
   border: 1px solid var(--line);
   border-left: 4px solid var(--warn);
   border-radius: var(--radius);
   background: var(--bg-2);
+  font-size: 0.85rem;
+  line-height: 1.4;
 }
-.notice summary { padding: 10px 14px; cursor: pointer; font-size: 0.9rem; }
-.notice-body { padding: 0 16px 14px; display: grid; gap: 8px; font-size: 0.9rem; }
-.notice-body ul { margin: 0; padding-left: 20px; }
+.notice-body { padding: 12px 16px; }
 
 /* ----- scène ----- */
 .toolbar {
@@ -125,7 +128,10 @@ body:not(.has-image) .needs-image { visibility: hidden; }
   cursor: grab;
 }
 .pane canvas:active { cursor: grabbing; }
-.stage:not([data-tool="move"]) .pane-result canvas { cursor: crosshair; }
+.stage[data-tool="pencil"] .pane-result canvas,
+.stage[data-tool="eraser"] .pane-result canvas,
+.stage[data-tool="picker"] .pane-result canvas,
+.stage[data-tool="crop"] .pane-original canvas { cursor: crosshair; }
 .pane figcaption {
   position: absolute;
   top: 8px;
@@ -168,6 +174,13 @@ body.has-image.is-dragging .dropzone {
     linear-gradient(var(--accent-2), var(--accent-2)) 50% 75% / 50% 25% no-repeat;
   border: 2px dashed var(--line);
   border-radius: 12px;
+}
+
+.gesture-hint { padding: 4px 10px; border-top: 1px solid var(--line); font-size: 0.75rem; }
+.only-touch { display: none; }
+@media (pointer: coarse) {
+  .only-touch { display: inline; }
+  .only-mouse { display: none; }
 }
 
 .statusbar {
@@ -224,6 +237,7 @@ body.has-image.is-dragging .dropzone {
   gap: 4px;
 }
 .swatch {
+  position: relative;
   aspect-ratio: 1;
   border: 1px solid rgb(255 255 255 / 0.15);
   border-radius: 4px;
@@ -234,5 +248,79 @@ body.has-image.is-dragging .dropzone {
 .swatch.is-selected { outline: 2px solid #fff; outline-offset: 1px; box-shadow: 0 0 0 4px #000; }
 
 .export-buttons { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.export-buttons.two { grid-template-columns: 1fr 1fr; }
+.export-buttons .btn { white-space: normal; text-align: center; }
 
 .footnote { font-size: 0.8rem; padding: 0 4px 12px; }
+
+/* ----- états du nuancier ----- */
+.swatch.is-excluded { opacity: 0.55; }
+.swatch.is-excluded::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 3px;
+  background: linear-gradient(to top right, transparent calc(50% - 1.5px), #fff calc(50% - 1.5px), #fff calc(50% + 1.5px), transparent calc(50% + 1.5px));
+  filter: drop-shadow(0 0 1px #000);
+}
+.swatch-badge {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 11px;
+  height: 11px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px #000;
+}
+.swatch.is-target { outline: 2px dashed var(--accent-2); outline-offset: 1px; }
+.swatch.is-dimmed { opacity: 0.3; cursor: not-allowed; }
+.swatch.is-dimmed:hover { transform: none; }
+
+/* ----- fiche d'une couleur ----- */
+.swatch-detail {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--accent-2);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.detail-head { display: flex; align-items: center; gap: 10px; }
+.detail-swatch { flex: none; width: 44px; height: 44px; border: 2px solid #fff8; border-radius: 6px; }
+.detail-names { display: grid; flex: 1; min-width: 0; }
+.detail-hex { font: 600 1.1rem var(--mono); letter-spacing: 0.04em; }
+.detail-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.detail-prompt { color: var(--accent-2); font-size: 0.88rem; }
+
+/* ----- infobulles et message flottant ----- */
+.tooltip {
+  position: fixed;
+  z-index: 20;
+  max-width: min(260px, calc(100vw - 16px));
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #000d;
+  color: #fff;
+  font-size: 0.85rem;
+  line-height: 1.3;
+  text-align: center;
+  pointer-events: none;
+}
+#toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  z-index: 30;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: var(--accent-2);
+  color: #00222d;
+  font-weight: 600;
+  transform: translate(-50%, 20px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s, transform 0.15s;
+}
+#toast.is-visible { opacity: 1; transform: translate(-50%, 0); }

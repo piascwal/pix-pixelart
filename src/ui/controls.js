@@ -1,6 +1,7 @@
 // Panneau de réglages : grille (taille, décalages), palette, fond, nettoyage.
 // Chaque réglage = un curseur couplé à un champ numérique (précis sur mobile).
 
+import { EMPTY_RULES } from '../core/palette.js';
 import { watch } from './state.js';
 
 const fmt = (v, step) => (step < 1 ? Number(v).toFixed(String(step).split('.')[1].length) : String(Math.round(v)));
@@ -14,7 +15,9 @@ function bindNumber(root, store, key) {
   const commit = (raw) => {
     const v = Number(raw);
     if (!Number.isFinite(v)) return;
-    store.set((s) => ({ settings: { ...s.settings, [key]: v } }));
+    // une autre palette n'a plus les mêmes codes hexa : les choix manuels n'auraient plus de sens
+    const reset = key === 'colors' ? { paletteRules: EMPTY_RULES } : {};
+    store.set((s) => ({ settings: { ...s.settings, [key]: v, ...reset } }));
   };
   for (const input of inputs) {
     input.addEventListener('input', () => commit(input.value));

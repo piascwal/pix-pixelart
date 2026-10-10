@@ -70,17 +70,4 @@ export function setupImporter({ dropTarget, fileInput, onImage, onError }) {
     e.preventDefault();
     load(item.getAsFile(), 'image-collee');
   });
-
-  return {
-    /** Charge une image par URL (l'exemple fourni avec l'appli). */
-    async loadUrl(url, name) {
-      try {
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`Téléchargement impossible (${res.status}).`);
-        await load(await res.blob(), name);
-      } catch (err) {
-        onError(err.message);
-      }
-    },
-  };
 }

@@ -4,15 +4,14 @@
 .topbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--gap);
-  padding: 12px 16px;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  padding: 10px 16px;
   border-bottom: 1px solid var(--line);
   background: var(--bg-2);
 }
 
-.brand { display: flex; align-items: center; gap: 12px; }
-.brand h1 { font-size: 1.3rem; letter-spacing: 0.02em; }
+.topbar h1 { font-size: 1.3rem; letter-spacing: 0.02em; }
 .tagline { color: var(--muted); font-size: 0.85rem; }
 
 .app {
@@ -73,5 +72,23 @@
   .stage { min-height: 0; }
   .panes { flex: 1; height: auto; min-height: 0; }
   .panel { min-height: 0; overflow-y: auto; padding-right: 2px; }
-  .notice[open] .notice-body { max-height: 30vh; overflow-y: auto; }
+}
+
+/* Sans image : pas d'aperçus vides ni de barre d'outils, juste la zone d'import,
+   bien en vue (sur téléphone elle se retrouvait sous la ligne de flottaison). */
+body:not(.has-image) .toolbar,
+body:not(.has-image) .gesture-hint { display: none; }
+
+@media (max-width: 999px) {
+  body:not(.has-image) .panes { display: block; height: auto; min-height: 0; }
+  body:not(.has-image) .pane { display: none; }
+  body:not(.has-image) .dropzone { position: static; padding: 28px 16px; }
+}
+
+@media (max-width: 520px) {
+  .hide-narrow { display: none; }
+  .icon-btn { min-width: 36px; height: 36px; padding: 0 6px; }
+  .tool-group { gap: 2px; }
+  .sep { margin: 0 2px; }
+  .toolbar { padding: 4px 6px; gap: 2px 8px; }
 }

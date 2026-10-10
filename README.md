@@ -8,14 +8,20 @@ Tout se passe dans le navigateur : aucune image n'est envoyée à un serveur. Fo
 
 ## Utilisation
 
-1. **Importer** une image PNG, JPG ou WebP : glisser-déposer, bouton « Choisir une image », ou coller (Ctrl+V). Le bouton « Essayer avec l'exemple » charge l'image de test.
-2. **Vérifier la grille** : Depix détecte la taille d'une case et le décalage de la grille, puis les superpose à l'original (lignes cyan). Si elles ne tombent pas sur les bords des « gros pixels », corrigez avec les curseurs *Taille d'une case*, *Décalage horizontal* et *Décalage vertical*.
-3. **Régler** le nombre de couleurs (48 à 56 conviennent souvent), la tolérance du fond, et le nettoyage des pixels isolés.
-4. **Comparer** avant / après côte à côte : les deux vues partagent le même zoom (molette, pincement, boutons + / −).
-5. **Retoucher** si besoin : crayon (couleur choisie dans le nuancier), gomme, pipette, annuler / rétablir (Ctrl+Z / Ctrl+Y).
-6. **Exporter** en PNG natif ou agrandi ×2 / ×4 / ×8 (plus proche voisin), fond transparent ou magenta #ff00ff.
+1. **Importer** une image PNG, JPG ou WebP : glisser-déposer, bouton « Choisir une image », ou coller (Ctrl+V). Le bouton « 📂 Autre image » de la barre d'outils permet d'en charger une autre ensuite.
+2. **Rogner** (✂️) si besoin : tracez un rectangle sur l'original, puis « Rogner ici » (Entrée). La grille, le fond et la palette sont ré-analysés sur cette zone seule. « ↩ Image entière » restaure l'original.
+3. **Vérifier la grille** : Depix détecte la taille d'une case et le décalage de la grille, puis les superpose à l'original (lignes cyan). Si elles ne tombent pas sur les bords des « gros pixels », corrigez avec les curseurs *Taille d'une case*, *Décalage horizontal* et *Décalage vertical*.
+4. **Régler** le nombre de couleurs (48 à 56 conviennent souvent), la tolérance du fond, et le nettoyage des pixels isolés.
+5. **Gérer la palette** : touchez une couleur du nuancier pour voir son code hexa (bouton *Copier*), puis *Ne pas utiliser* (ses pixels prennent la couleur restante la plus proche), *Remplacer par…* (puis touchez la couleur de remplacement) ou *Dessiner avec*. Les couleurs écartées sont barrées, les remplacées portent une pastille de leur remplaçante. Changer le nombre de couleurs réinitialise ces choix.
+6. **Comparer** avant / après côte à côte : les deux vues partagent le même zoom. *Cadrer* centre le sprite (les poussières isolées ne comptent pas), *Tout* montre l'image entière.
+7. **Retoucher** si besoin : crayon, gomme, pipette, annuler / rétablir (Ctrl+Z / Ctrl+Y).
+8. **Exporter** en PNG natif ou agrandi ×2 / ×4 / ×8 (plus proche voisin), fond transparent ou magenta #ff00ff ; et la **palette** : copier les codes hexa (un par ligne) ou télécharger un fichier `.hex` (un code par ligne, sans `#`).
 
-Raccourcis : `M` déplacer, `B` crayon, `E` gomme, `I` pipette, `+` / `-` zoom, `0` cadrer le résultat.
+Un appui long (téléphone) ou un survol (souris) sur une icône en affiche le nom.
+
+**Gestes** : à la souris, glisser déplace et la molette zoome (Ctrl + molette si la page défile). Au doigt, **un doigt déplace** l'image (ou dessine / trace le rognage selon l'outil), **deux doigts** pincent pour zoomer et, en glissant, font défiler la page.
+
+Raccourcis : `M` déplacer, `B` crayon, `E` gomme, `I` pipette, `C` rogner, `+` / `-` zoom, `0` cadrer le résultat.
 
 > Changer un réglage relance la conversion et efface les retouches : réglez d'abord, retouchez ensuite.
 
@@ -38,9 +44,10 @@ D'où les réglages manuels et le mini éditeur.
 | Décalage | `src/core/gridDetect.js` | Décalages de 0 à P−1 par pas de 0,25 px ; on garde celui qui maximise les gradients sur les lignes de grille. |
 | Couleur d'une case | `src/core/sampleCells.js` | Médiane par canal des pixels **intérieurs** (1 px de bord ignoré), jamais un seul pixel. |
 | Fond | `src/core/background.js` | Couleur dominante du bord, mesurée (le « magenta » d'une IA n'est presque jamais #ff00ff). Pixel de fond si la somme des écarts RVB < 60 ; case vide si plus de la moitié de son intérieur est du fond. |
-| Palette | `src/core/palette.js` | Median cut sans tramage. |
+| Palette | `src/core/palette.js` | Median cut sans tramage, puis choix manuels par code hexa (`resolvePalette` : exclusions et remplacements). |
 | Nettoyage | `src/core/cleanup.js` | Retire les pixels ayant moins de 2 voisins opaques et les îlots de moins de N pixels ; bouche les trous d'1 px entourés. |
 | Export | `src/core/upscale.js` | Agrandissement au plus proche voisin, fond transparent ou magenta. |
+| Cadrage | `src/core/frame.js` | Boîte englobante du sprite en ignorant les petits îlots isolés. |
 | Chaîne | `src/core/pipeline.js` | `analyze` (grille + fond) puis `convert` ; `depix` fait les deux. |
 
 ## Architecture
@@ -56,11 +63,14 @@ src/worker/   depix.worker.js : le traitement lourd hors du fil principal
 src/ui/       state.js     état central + abonnements
               app.js       branchement : worker, modules, barre d'outils
               importer.js  glisser-déposer, bouton, coller
-              viewer.js    avant / après, zoom partagé, grille superposée
+              viewer.js    avant / après, zoom partagé, grille superposée, gestes
               controls.js  curseurs de réglage
-              paletteView.js nuancier
+              paletteView.js nuancier + fiche d'une couleur (hexa, exclure, remplacer)
+              cropper.js   rognage de l'image de travail
+              tooltips.js  noms des icônes (appui long / survol)
+              clipboard.js copie et petit message « copié »
               editor.js    crayon, gomme, pipette, annuler / rétablir
-              exporter.js  PNG natif et agrandi
+              exporter.js  PNG natif et agrandi, palette en hexa
 tests/        node --test, sans dépendance
 tools/        make-fixture.py (outil de dev : génère l'image de test)
 ```
