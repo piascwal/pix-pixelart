@@ -12,14 +12,16 @@
 import { detectGrid, gridLines } from './gridDetect.js';
 import { detectBackground, DEFAULT_TOLERANCE } from './background.js';
 import { sampleCells } from './sampleCells.js';
-import { colorHistogram, medianCut, applyPalette, DEFAULT_COLORS } from './palette.js';
+import { colorHistogram, medianCut, applyPalette, resolvePalette, EMPTY_RULES, DEFAULT_COLORS } from './palette.js';
 import { cleanup as cleanupImage } from './cleanup.js';
-import { trimTransparent } from './image.js';
+import { trimTransparent, toHex } from './image.js';
+import { focusBounds } from './frame.js';
 
 export const DEFAULT_OPTIONS = Object.freeze({
   tolerance: DEFAULT_TOLERANCE, // distance RVB (somme des |écarts|) en dessous de laquelle c'est du fond
   emptyRatio: 0.5,              // une case est vide si plus de la moitié de son intérieur est du fond
   colors: DEFAULT_COLORS,
+  paletteRules: EMPTY_RULES,    // exclusions / remplacements manuels (voir resolvePalette)
   cleanup: { isolated: true, minIsland: 4, fillHoles: true }, // null pour désactiver
   trim: true,
 });
@@ -31,7 +33,9 @@ export function analyze(img) {
 /**
  * @param {import('./image.js').RGBAImage} img
  * @param {{ grid: {period, offsetX, offsetY}, background: object } & Partial<typeof DEFAULT_OPTIONS>} options
- * @returns {{ image, palette, lines: { xs, ys }, stats }}
+ * @returns {{ image, palette, lines: { xs, ys }, focus, stats }}
+ *   palette : la palette complète (avant choix manuels) ; focus : zone du sprite
+ *   en cases { x0, y0, x1, y1 } (x1, y1 exclus), sans les petites poussières
  *   lines : bords en pixels source de chaque colonne / ligne du résultat
  *   (lines.xs[i]..lines.xs[i+1] = colonne i), pour superposer avant / après.
  */
@@ -41,7 +45,8 @@ export function convert(img, options) {
   let cells = sampleCells(img, all, o.background, { tolerance: o.tolerance, emptyRatio: o.emptyRatio });
 
   const palette = medianCut(colorHistogram(cells), o.colors);
-  let image = applyPalette(cells, palette);
+  const targets = resolvePalette(palette, o.paletteRules);
+  let image = applyPalette(cells, palette, targets);
   if (o.cleanup) image = cleanupImage(image, o.cleanup);
 
   let x = 0;
@@ -58,7 +63,8 @@ export function convert(img, options) {
     image,
     palette,
     lines,
-    stats: { width: image.width, height: image.height, filled, colors: palette.length },
+    focus: focusBounds(image),
+    stats: { width: image.width, height: image.height, filled, colors: new Set(targets.map(toHex)).size },
   };
 }
 

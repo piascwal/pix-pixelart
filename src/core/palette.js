@@ -3,7 +3,7 @@
 // pixels) le long de son canal le plus dispersé, en commençant toujours par
 // la boîte qui concentre le plus d'erreur.
 
-import { packRGB, unpackRGB } from './image.js';
+import { packRGB, unpackRGB, toHex } from './image.js';
 
 export const DEFAULT_COLORS = 48;
 
@@ -104,8 +104,12 @@ export function nearestIndex(palette, r, g, b) {
   return best;
 }
 
-/** Remplace chaque pixel opaque par la couleur de palette la plus proche (sans tramage). */
-export function applyPalette(img, palette) {
+/**
+ * Remplace chaque pixel opaque par la couleur de palette la plus proche (sans
+ * tramage). `targets[i]` (par défaut palette[i]) est la couleur finalement
+ * écrite pour la couleur i : voir resolvePalette.
+ */
+export function applyPalette(img, palette, targets = palette) {
   const out = { width: img.width, height: img.height, data: new Uint8ClampedArray(img.data) };
   if (!palette.length) return out;
   const cache = new Map();
@@ -115,7 +119,7 @@ export function applyPalette(img, palette) {
     const key = packRGB(d[i], d[i + 1], d[i + 2]);
     let idx = cache.get(key);
     if (idx === undefined) cache.set(key, (idx = nearestIndex(palette, d[i], d[i + 1], d[i + 2])));
-    [d[i], d[i + 1], d[i + 2]] = palette[idx];
+    [d[i], d[i + 1], d[i + 2]] = targets[idx];
   }
   return out;
 }
@@ -123,4 +127,39 @@ export function applyPalette(img, palette) {
 /** Palette effectivement utilisée par une image (après retouches par exemple). */
 export function usedColors(img) {
   return sortByLuma([...colorHistogram(img).keys()].map(unpackRGB));
+}
+
+/**
+ * Choix manuels sur la palette, par code hexa (« #rrggbb ») :
+ *   excluded : couleurs à ne pas utiliser (leurs pixels prennent la couleur
+ *              restante la plus proche) ;
+ *   replace  : { '#a': '#b' } la couleur a est remplacée par la couleur b.
+ * Un remplacement l'emporte sur une exclusion de la même couleur.
+ */
+export const EMPTY_RULES = Object.freeze({ excluded: Object.freeze([]), replace: Object.freeze({}) });
+
+/**
+ * Couleur finale de chaque couleur de la palette une fois les choix appliqués.
+ * Les règles qui visent une couleur absente de la palette sont ignorées
+ * (la palette change quand on change le nombre de couleurs ou la grille).
+ * @returns {Array<[number, number, number]>} targets, de même longueur que palette
+ */
+export function resolvePalette(palette, rules = EMPTY_RULES) {
+  const excluded = new Set(rules.excluded || []);
+  const replace = rules.replace || {};
+  const byHex = new Map(palette.map((c) => [toHex(c), c]));
+  let active = palette.filter((c) => !excluded.has(toHex(c)));
+  if (!active.length) { excluded.clear(); active = palette; } // jamais de palette vide
+  return palette.map((color) => {
+    let hex = toHex(color);
+    // suit les remplacements (A → B → C), avec garde-fou contre les cycles
+    for (let step = 0; step < palette.length; step++) {
+      const next = replace[hex];
+      if (!next || next === hex || !byHex.has(next)) break;
+      hex = next;
+    }
+    if (!excluded.has(hex)) return byHex.get(hex);
+    const [r, g, b] = byHex.get(hex);
+    return active[nearestIndex(active, r, g, b)];
+  });
 }
