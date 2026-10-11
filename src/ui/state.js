@@ -47,6 +47,10 @@ export const DEFAULT_SETTINGS = Object.freeze({
   offsetY: 0,
   colors: 48,
   paletteRules: EMPTY_RULES, // choix manuels : { excluded: ['#rrggbb'], replace: { '#a': '#b' } }
+  gridMode: 'detect',   // detect : grille détectée (faux pixel art) | target : taille de sortie choisie (photo, image normale)
+  targetSize: 64,       // mode target : le côté le plus long fait autant de pixels
+  removeBg: true,       // mode target : retirer le fond (en mode detect, toujours)
+  canvasSize: 0,        // export : 0 = taille de l'image, sinon toile carrée N × N
   tolerance: 60,
   cleanup: true,
   minIsland: 4,

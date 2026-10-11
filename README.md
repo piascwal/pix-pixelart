@@ -11,11 +11,12 @@ Tout se passe dans le navigateur : aucune image n'est envoyée à un serveur. Fo
 1. **Importer** une image PNG, JPG ou WebP : glisser-déposer, bouton « Choisir une image », ou coller (Ctrl+V). Le bouton « Autre image » (icône dossier) de la barre d'outils permet d'en charger une autre ensuite.
 2. **Rogner** (outil ciseaux) si besoin : tracez un rectangle sur l'original, puis « Rogner ici » (Entrée). La grille, le fond et la palette sont ré-analysés sur cette zone seule. « Image entière » restaure l'original.
 3. **Vérifier la grille** : Depix détecte la taille d'une case et le décalage de la grille, puis les superpose à l'original (lignes cyan). Si elles ne tombent pas sur les bords des « gros pixels », corrigez avec les curseurs *Taille d'une case*, *Décalage horizontal* et *Décalage vertical*.
+   **Photo ou image normale** (sans gros pixels à retrouver) : dans « Grille », choisissez « Choisir la taille » puis 16, 32, 64, 128, 256 ou une valeur libre. Le côté le plus long de l'image fera autant de pixels (une photo 4:3 en 64 donne 64 × 48) ; chaque pixel prend la couleur de son bloc de l'image. Le fond n'est alors retiré que si vous cochez « Retirer le fond ». Revenir à « Détecter la grille » redonne exactement le comportement habituel.
 4. **Régler** le nombre de couleurs (48 à 56 conviennent souvent), la tolérance du fond, et le nettoyage des pixels isolés.
 5. **Gérer la palette** : touchez une couleur du nuancier pour voir son code hexa (bouton *Copier*), puis *Ne pas utiliser* (ses pixels prennent la couleur restante la plus proche), *Remplacer par…* (puis touchez la couleur de remplacement) ou *Dessiner avec*. Les couleurs écartées sont barrées, les remplacées portent une pastille de leur remplaçante. Changer le nombre de couleurs réinitialise ces choix.
 6. **Comparer** avant / après côte à côte : les deux vues partagent le même zoom. *Cadrer* centre le sprite (les poussières isolées ne comptent pas), *Tout* montre l'image entière.
 7. **Retoucher** si besoin : crayon, gomme, pipette, annuler / rétablir (Ctrl+Z / Ctrl+Y).
-8. **Exporter** en PNG natif ou agrandi ×2 / ×4 / ×8 (plus proche voisin), fond transparent ou magenta #ff00ff ; et la **palette** : copier les codes hexa (un par ligne) ou télécharger un fichier `.hex` (un code par ligne, sans `#`).
+8. **Exporter** en PNG natif ou agrandi ×2 / ×4 / ×8 (plus proche voisin), fond transparent ou magenta #ff00ff, éventuellement posé au centre d'une **toile carrée** 16, 32, 64, 128, 256 ou 512 (sans déformation ni perte : un sprite de 92 × 120 sort en 128 × 128 avec des marges transparentes) ; et la **palette** : copier les codes hexa (un par ligne) ou télécharger un fichier `.hex` (un code par ligne, sans `#`).
 
 Un appui long (téléphone) ou un survol (souris) sur une icône en affiche le nom. Sur téléphone, les sections de réglages (Grille, Palette, Fond, Nettoyage) sont repliées au départ.
 
@@ -45,6 +46,8 @@ D'où les réglages manuels et le mini éditeur.
 | Étape | Module | Principe |
 |---|---|---|
 | Taille du pixel | `src/core/gridDetect.js` | Énergie des gradients par colonne et par ligne, autocorrélation de 3 à 20 px, plus petite période forte (les multiples ressortent aussi), puis affinage au peigne (périodes fractionnaires comme 5,5 px). |
+| Taille choisie | `src/core/gridDetect.js` | `targetGrid` : le côté le plus long fait N cases, période source / N (fractionnaire si besoin) ; la suite de la chaîne est inchangée. |
+| Toile carrée | `src/core/upscale.js` | `padToCanvas` : centre l'image sur une toile N × N, sans rééchantillonner. |
 | Décalage | `src/core/gridDetect.js` | Décalages de 0 à P−1 par pas de 0,25 px ; on garde celui qui maximise les gradients sur les lignes de grille. |
 | Couleur d'une case | `src/core/sampleCells.js` | Médiane par canal des pixels **intérieurs** (1 px de bord ignoré), jamais un seul pixel. |
 | Fond | `src/core/background.js` | Couleur dominante du bord, mesurée (le « magenta » d'une IA n'est presque jamais #ff00ff). Pixel de fond si la somme des écarts RVB < 60 ; case vide si plus de la moitié de son intérieur est du fond. |

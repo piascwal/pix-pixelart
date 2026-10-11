@@ -341,6 +341,20 @@ body.has-image.is-dragging .dropzone {
 }
 #toast.is-visible { opacity: 1; transform: translate(-50%, 0); }
 
+.mode-panel { display: grid; gap: 12px; }
+.segmented-full { display: flex; width: 100%; }
+.segmented-full > * { flex: 1; text-align: center; }
+.field select {
+  width: 100%;
+  min-height: 38px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+}
+.field select:disabled { opacity: 0.5; }
+
 /* ----- sections de réglages repliables (fermées par défaut sur téléphone) ----- */
 #controls { gap: 0; }
 .section { border-top: 1px solid var(--line); }

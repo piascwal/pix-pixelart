@@ -96,6 +96,30 @@
       <details class="section" open>
         <summary>Grille</summary>
         <div class="section-body">
+          <div class="segmented segmented-full" role="group" aria-label="Choix de la grille">
+            <label><input type="radio" name="gridmode" value="detect" checked> Détecter la grille</label>
+            <label><input type="radio" name="gridmode" value="target"> Choisir la taille</label>
+          </div>
+
+          <div class="mode-panel" data-mode-panel="target" hidden>
+            <p class="hint">Pour une photo ou une image normale, sans gros pixels à retrouver : le côté le plus long de l'image fera autant de pixels.</p>
+            <div class="field">
+              <label for="target-n">Taille de sortie (côté le plus long)</label>
+              <div class="segmented segmented-full presets" role="group" aria-label="Tailles usuelles">
+                <button type="button" data-target="16">16</button>
+                <button type="button" data-target="32">32</button>
+                <button type="button" data-target="64">64</button>
+                <button type="button" data-target="128">128</button>
+                <button type="button" data-target="256">256</button>
+              </div>
+              <div class="range-row">
+                <input type="number" id="target-n" min="4" max="512" step="1" data-setting="targetSize"><span class="unit">px</span>
+              </div>
+              <p class="hint" data-info="target-result"></p>
+            </div>
+          </div>
+
+          <div class="mode-panel" data-mode-panel="detect">
           <p class="hint" data-info="detected"></p>
           <div class="field">
             <label for="period-n">Taille d'une case</label>
@@ -119,6 +143,7 @@
             </div>
           </div>
           <button type="button" class="btn btn-small" data-action="auto-grid"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#rotate-ccw"/></svg> Revenir à la détection auto</button>
+          </div>
         </div>
       </details>
 
@@ -143,7 +168,8 @@
       <details class="section" open>
         <summary>Fond</summary>
         <div class="section-body">
-          <div class="field">
+          <label class="check" data-row="removeBg" hidden><input type="checkbox" data-setting="removeBg"> Retirer le fond</label>
+          <div class="field" data-row="tolerance">
             <label for="tol-n">Tolérance du fond</label>
             <div class="range-row">
               <input type="range" min="0" max="250" step="1" data-setting="tolerance" aria-label="Tolérance du fond">
@@ -179,6 +205,19 @@
     <section id="export" class="card">
       <h2>Exporter en PNG</h2>
       <p class="hint" data-info="export"></p>
+      <div class="field">
+        <label for="canvas-size">Toile carrée (facultatif)</label>
+        <select id="canvas-size">
+          <option value="0">Taille de l'image</option>
+          <option value="16">16 × 16</option>
+          <option value="32">32 × 32</option>
+          <option value="64">64 × 64</option>
+          <option value="128">128 × 128</option>
+          <option value="256">256 × 256</option>
+          <option value="512">512 × 512</option>
+        </select>
+        <p class="hint">Pose l'image au centre d'une toile transparente de cette taille, sans la déformer : pour sortir du 64 × 64 ou du 128 × 128.</p>
+      </div>
       <div class="export-buttons">
         <button type="button" class="btn btn-primary" data-export="1">Natif</button>
         <button type="button" class="btn" data-export="2">×2</button>

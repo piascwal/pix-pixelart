@@ -2,6 +2,7 @@
 
 import { crop } from '../core/image.js';
 import { EMPTY_RULES } from '../core/palette.js';
+import { withTargetGrid } from './controls.js';
 import { store, watch, DEFAULT_SETTINGS } from './state.js';
 import { setupImporter } from './importer.js';
 import { createViewer } from './viewer.js';
@@ -54,7 +55,8 @@ async function work(image, bitmap) {
     if (store.get().source !== image) return; // une autre image a pris la place entre-temps
     store.set((s) => ({
       detected: { grid, background },
-      settings: { ...s.settings, period: grid.period, offsetX: grid.offsetX, offsetY: grid.offsetY },
+      // grille détectée, ou calculée depuis la taille voulue si on est en mode « taille choisie »
+      settings: withTargetGrid({ ...s.settings, period: grid.period, offsetX: grid.offsetX, offsetY: grid.offsetY }, image),
     }));
   } catch (err) {
     store.set({ error: err.message, busy: false });
@@ -95,6 +97,8 @@ function restoreOriginal() {
 
 /* -------------------------------------------------------- conversion --- */
 
+const NO_BACKGROUND = { r: 0, g: 0, b: 0, transparent: true }; // aucun pixel opaque n'est du fond
+
 let timer = 0;
 let latest = 0;
 
@@ -113,7 +117,8 @@ async function convertNow() {
       type: 'convert',
       options: {
         grid: { period: settings.period, offsetX: settings.offsetX, offsetY: settings.offsetY },
-        background: detected.background,
+        // photo : on ne retire le fond que si on le demande ; faux pixel art : toujours
+        background: settings.gridMode === 'target' && !settings.removeBg ? NO_BACKGROUND : detected.background,
         tolerance: settings.tolerance,
         colors: Math.round(settings.colors),
         paletteRules: settings.paletteRules,
@@ -129,8 +134,8 @@ async function convertNow() {
 
 watch(store, ['detected'], scheduleConvert);
 watch(store, ['settings'], (s, prev) => {
-  // la couleur de fond de sortie ne change rien à la conversion
-  const keys = Object.keys(DEFAULT_SETTINGS).filter((k) => k !== 'output');
+  // le fond de sortie et la toile d'export ne changent rien à la conversion
+  const keys = Object.keys(DEFAULT_SETTINGS).filter((k) => k !== 'output' && k !== 'canvasSize');
   if (keys.some((k) => s.settings[k] !== prev.settings[k])) scheduleConvert();
 });
 
