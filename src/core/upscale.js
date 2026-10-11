@@ -27,3 +27,21 @@ export function flatten(img, [r, g, b] = MAGENTA) {
   }
   return out;
 }
+
+/**
+ * Pose l'image au centre d'une toile transparente carrée size × size, sans la
+ * déformer ni la rééchantillonner (pas de perte). Une dimension impaire de
+ * marge donne un pixel de plus en bas / à droite.
+ */
+export function padToCanvas(img, size) {
+  if (img.width > size || img.height > size) {
+    throw new RangeError(`L'image (${img.width} × ${img.height}) ne tient pas dans ${size} × ${size}.`);
+  }
+  const out = createImage(size, size);
+  const x0 = (size - img.width) >> 1;
+  const y0 = (size - img.height) >> 1;
+  for (let y = 0; y < img.height; y++) {
+    out.data.set(img.data.subarray(y * img.width * 4, (y + 1) * img.width * 4), ((y0 + y) * size + x0) * 4);
+  }
+  return out;
+}

@@ -192,3 +192,14 @@ export function gridLines(grid, width, height) {
     ys: axisLines(height, grid.period, grid.offsetY),
   };
 }
+
+/**
+ * Grille pour une taille de sortie choisie, au lieu d'une grille détectée :
+ * pour une photo ou une image normale, qui n'a pas de gros pixels à retrouver.
+ * Le côté le plus long de l'image fait `size` cases (64 → 64 × 48 pour du 4:3),
+ * chaque case étant un bloc de période source/size, fractionnaire si besoin.
+ */
+export function targetGrid(width, height, size) {
+  const n = Math.max(1, Math.round(size));
+  return { period: Math.max(width, height) / n, offsetX: 0, offsetY: 0 };
+}
