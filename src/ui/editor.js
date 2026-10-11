@@ -109,8 +109,31 @@ export function createEditor(store) {
     else if (key === 'y' || (key === 'z' && e.shiftKey)) { e.preventDefault(); swap(redo, undo); }
   });
 
+  /**
+   * Retouche d'une seule case (outil Pointeur), annulable :
+   * rgb = [r, g, b], ou null pour la rendre transparente.
+   */
+  function setPixel(cell, rgb) {
+    const { edited } = store.get();
+    if (!edited || !cell) return false;
+    const i = (cell.y * edited.width + cell.x) * 4;
+    const d = edited.data;
+    const same = rgb
+      ? d[i + 3] === 255 && d[i] === rgb[0] && d[i + 1] === rgb[1] && d[i + 2] === rgb[2]
+      : d[i + 3] === 0;
+    if (same) return false;
+    undo.push(new Uint8ClampedArray(d));
+    if (undo.length > MAX_HISTORY) undo.shift();
+    redo = [];
+    if (rgb) { d[i] = rgb[0]; d[i + 1] = rgb[1]; d[i + 2] = rgb[2]; d[i + 3] = 255; } else d[i + 3] = 0;
+    bump();
+    publishHistory();
+    return true;
+  }
+
   return {
     onEditPointer,
+    setPixel,
     undo: () => swap(undo, redo),
     redo: () => swap(redo, undo),
   };

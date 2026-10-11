@@ -20,7 +20,8 @@ const EDIT_TOOLS = new Set(['pencil', 'eraser', 'picker']);
  * @param {{ original: HTMLCanvasElement, result: HTMLCanvasElement }} canvases
  * @param {object} store
  * @param {{ onEditPointer: (phase: 'down'|'move'|'up', cell: {x,y}|null) => void,
- *           onCropPointer: (phase: 'down'|'move'|'up'|'cancel', pt: {x,y}|null) => void }} hooks
+ *           onCropPointer: (phase: 'down'|'move'|'up'|'cancel', pt: {x,y}|null) => void,
+ *           onInspect: (cell: {x,y}|null) => void }} hooks
  */
 export function createViewer(canvases, store, hooks) {
   const cam = { scale: 1, cx: 0, cy: 0 };
@@ -67,6 +68,8 @@ export function createViewer(canvases, store, hooks) {
 
   function resize() {
     const dpr = window.devicePixelRatio || 1;
+    const ref = panes.find((p) => p.h > 0);   // un panneau déjà mesuré, pour suivre sa hauteur
+    const refHeight = ref ? ref.h : 0;
     for (const p of panes) {
       p.w = p.canvas.clientWidth;
       p.h = p.canvas.clientHeight;
@@ -77,8 +80,11 @@ export function createViewer(canvases, store, hooks) {
       if (p.canvas.width === w && p.canvas.height === h) continue;
       p.canvas.width = w;
       p.canvas.height = h;
-      if (p.w && p.h) draw(p);
     }
+    // Quand la hauteur change (fiche d'une case, boutons de rognage qui apparaissent…),
+    // l'image reste en place, ancrée en haut, au lieu de sauter de la moitié de l'écart.
+    if (ref && ref.h > 0 && ref.h !== refHeight) cam.cy += (ref.h - refHeight) / (2 * cam.scale);
+    for (const p of panes) if (p.w && p.h) draw(p);
   }
 
   function redraw() {
@@ -105,6 +111,7 @@ export function createViewer(canvases, store, hooks) {
       if (s.view.grid) drawGrid(pane, gridLines(s.settings, s.source.width, s.source.height), 'rgba(0, 255, 255, 0.55)', 4);
       if (s.result) drawFrame(pane, s.result.lines);
       if (s.cropSel) drawCropSelection(pane, s.cropSel, s.source);
+      if (s.result && s.pixelSel) drawPixelSelection(pane, s.result.lines, s.pixelSel);
       return;
     }
 
@@ -127,6 +134,23 @@ export function createViewer(canvases, store, hooks) {
     if (EDIT_TOOLS.has(s.tool) && s.settings.period * cam.scale >= 10) {
       drawGrid(pane, s.result.lines, 'rgba(127, 127, 127, 0.35)', 10);
     }
+    if (s.pixelSel) drawPixelSelection(pane, s.result.lines, s.pixelSel);
+  }
+
+  /** Contour de la case choisie avec le pointeur, visible sur n'importe quelle couleur. */
+  function drawPixelSelection(pane, { xs, ys }, { x, y }) {
+    if (x < 0 || y < 0 || x >= xs.length - 1 || y >= ys.length - 1) return;
+    const { ctx } = pane;
+    const [x0, y0] = toScreen(pane, xs[x], ys[y]);
+    const [x1, y1] = toScreen(pane, xs[x + 1], ys[y + 1]);
+    const w = Math.max(5, x1 - x0);
+    const h = Math.max(5, y1 - y0);
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = '#000';
+    ctx.strokeRect(x0, y0, w, h);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#fff';
+    ctx.strokeRect(x0, y0, w, h);
   }
 
   function drawGrid(pane, { xs, ys }, color, minSpacing) {
@@ -240,6 +264,7 @@ export function createViewer(canvases, store, hooks) {
     const pointers = new Map(); // id → position à l'écran (clientX / clientY)
     let pinch = null;
     let gesture = null;         // 'edit' | 'crop' | null
+    let tap = null;             // pointeur : appui qui n'a pas bougé = sélection d'une case
 
     const localOf = (x, y) => {
       const r = canvas.getBoundingClientRect();
@@ -276,6 +301,7 @@ export function createViewer(canvases, store, hooks) {
       pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (pointers.size === 2) {
         endGesture();
+        tap = null;
         const [a, b] = [...pointers.values()];
         pinch = { dist: Math.hypot(a.x - b.x, a.y - b.y), mid: [(a.x + b.x) / 2, (a.y + b.y) / 2] };
         return;
@@ -288,6 +314,8 @@ export function createViewer(canvases, store, hooks) {
       } else if (pane.kind === 'original' && tool === 'crop') {
         gesture = 'crop';
         hooks.onCropPointer('down', sourcePoint(e));
+      } else if (tool === 'inspect') {
+        tap = { x: e.clientX, y: e.clientY };
       }
     });
 
@@ -296,6 +324,8 @@ export function createViewer(canvases, store, hooks) {
       if (!prev) return;
       const cur = { x: e.clientX, y: e.clientY };
       pointers.set(e.pointerId, cur);
+      // un appui qui glisse est un déplacement, pas une sélection
+      if (tap && Math.hypot(cur.x - tap.x, cur.y - tap.y) > 8) tap = null;
 
       if (pointers.size === 2 && pinch) {
         const [a, b] = [...pointers.values()];
@@ -309,7 +339,7 @@ export function createViewer(canvases, store, hooks) {
         hooks.onEditPointer('move', cellAt(pane, ...localOf(cur.x, cur.y)));
       } else if (gesture === 'crop') {
         hooks.onCropPointer('move', sourcePoint(e));
-      } else if (pointers.size === 1) {
+      } else if (pointers.size === 1 && !tap) {
         cam.cx -= (cur.x - prev.x) / cam.scale;
         cam.cy -= (cur.y - prev.y) / cam.scale;
         redraw();
@@ -322,7 +352,9 @@ export function createViewer(canvases, store, hooks) {
       if (pointers.size === 0) {
         if (gesture === 'edit') hooks.onEditPointer('up', null);
         else if (gesture === 'crop') hooks.onCropPointer('up', null);
+        else if (tap && e.type === 'pointerup') hooks.onInspect(cellAt(pane, ...localOf(e.clientX, e.clientY)));
         gesture = null;
+        tap = null;
       }
     };
     canvas.addEventListener('pointerup', release);
@@ -346,7 +378,7 @@ export function createViewer(canvases, store, hooks) {
     if (fitNextResult && store.get().result) { fitNextResult = false; fitBest(); }
   });
   watch(store, ['edited', 'editVersion'], () => { updateResultBitmap(); redraw(); });
-  watch(store, ['settings', 'view', 'tool', 'cropSel'], redraw);
+  watch(store, ['settings', 'view', 'tool', 'cropSel', 'pixelSel'], redraw);
   watch(store, ['view'], () => requestAnimationFrame(resize));
 
   resize();

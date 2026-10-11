@@ -25,6 +25,7 @@
     <div class="toolbar" role="toolbar" aria-label="Outils">
       <div class="tool-group needs-result">
         <button type="button" class="icon-btn" data-tool="move" data-tip="Main : déplacer l'image" aria-label="Main : déplacer l'image"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#hand"/></svg></button>
+        <button type="button" class="icon-btn" data-tool="inspect" data-tip="Pointeur : toucher une case pour voir sa couleur, la supprimer ou la remplacer" aria-label="Pointeur"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#mouse-pointer-2"/></svg></button>
         <button type="button" class="icon-btn" data-tool="pencil" data-tip="Crayon : dessiner une case avec la couleur choisie" aria-label="Crayon"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#pencil"/></svg><span class="current-color" id="current-color"></span></button>
         <button type="button" class="icon-btn" data-tool="eraser" data-tip="Gomme : rendre une case transparente" aria-label="Gomme"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#eraser"/></svg></button>
         <button type="button" class="icon-btn" data-tool="picker" data-tip="Pipette : prendre la couleur d'une case" aria-label="Pipette"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#pipette"/></svg></button>
@@ -79,10 +80,9 @@
       </div>
     </div>
 
-    <p class="gesture-hint muted">
-      <span class="only-touch">Sans outil, la page défile normalement. Avec la main (ou un autre outil) : 1 doigt agit sur l'image, 2 doigts pincent pour zoomer et font défiler la page.</span>
-      <span class="only-mouse">Glisser : déplacer · Molette : zoom (Ctrl + molette si la page défile)</span>
-    </p>
+    <p class="gesture-hint muted">Glisser : déplacer · Molette : zoom (Ctrl + molette si la page défile)</p>
+
+    <div class="pixel-info" id="pixel-info" role="group" aria-label="Case sélectionnée" hidden></div>
 
     <div class="statusbar">
       <span id="source-name" class="muted"></span>
@@ -124,8 +124,8 @@
           <div class="field">
             <label for="period-n">Taille d'une case</label>
             <div class="range-row">
-              <input type="range" min="3" max="20" step="0.005" data-setting="period" aria-label="Taille d'une case">
-              <input type="number" id="period-n" min="3" max="20" step="0.005" data-setting="period"><span class="unit">px</span>
+              <input type="range" min="3" max="64" step="0.005" data-setting="period" aria-label="Taille d'une case">
+              <input type="number" id="period-n" min="3" max="256" step="0.005" data-setting="period"><span class="unit">px</span>
             </div>
           </div>
           <div class="field">
@@ -235,9 +235,14 @@
       <p class="hint">Les couleurs réellement présentes dans l'image, une par ligne (le fichier .hex est sans « # »).</p>
     </section>
 
-    <p class="footnote muted">Retouches : choisissez une couleur du nuancier puis dessinez sur « Vrai pixel art ». Changer un réglage relance la conversion et efface les retouches.</p>
   </aside>
 </main>
+
+<button type="button" class="mini-preview" id="mini-preview" hidden aria-label="Aperçu du résultat : toucher pour revenir à l'image">
+  <canvas aria-hidden="true"></canvas>
+  <span class="mini-text"><strong>Aperçu en direct</strong><span data-info="mini"></span></span>
+  <svg class="icon" aria-hidden="true"><use href="assets/icons.svg#arrow-up"/></svg>
+</button>
 
 <footer class="page-footer">
   <a href="cgu.html">Conditions d'utilisation</a>

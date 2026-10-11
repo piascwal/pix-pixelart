@@ -10,6 +10,8 @@ import { createControls } from './controls.js';
 import { createPaletteView } from './paletteView.js';
 import { createEditor } from './editor.js';
 import { createCropper } from './cropper.js';
+import { createInspector } from './inspector.js';
+import { createMiniPreview } from './miniPreview.js';
 import { createExporter } from './exporter.js';
 import { setupTooltips } from './tooltips.js';
 
@@ -150,11 +152,13 @@ const cropper = createCropper(store, {
   onApply: applyCrop,
   onReset: restoreOriginal,
 });
+const inspector = createInspector($('#pixel-info'), store, editor);
 const viewer = createViewer(
   { original: $('#view-original'), result: $('#view-result') },
   store,
-  { onEditPointer: editor.onEditPointer, onCropPointer: cropper.onCropPointer },
+  { onEditPointer: editor.onEditPointer, onCropPointer: cropper.onCropPointer, onInspect: inspector.select },
 );
+createMiniPreview($('#mini-preview'), store, $('.pane-result'), $('#stage'));
 createControls($('#controls'), store);
 createPaletteView($('#palette'), $('#swatch-detail'), store);
 createExporter($('#export'), store);
