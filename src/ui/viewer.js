@@ -98,6 +98,7 @@ export function createViewer(canvases, store, hooks) {
   function draw(pane) {
     const { ctx } = pane;
     const s = store.get();
+    pane.canvas.dataset.view = `${cam.cx.toFixed(2)},${cam.cy.toFixed(2)},${cam.scale.toFixed(4)}`;
     const dpr = pane.canvas.width / pane.w;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, pane.w, pane.h);
@@ -259,10 +260,13 @@ export function createViewer(canvases, store, hooks) {
 
   /* ---------------------------------------------------- interactions -- */
 
+  // doigts partagés entre les deux aperçus : un doigt sur chacun forme un pincement
+  const pointers = new Map(); // id → position à l'écran (clientX / clientY)
+  let pinch = null;
+  const endAllGestures = [];
+
   for (const pane of panes) {
     const { canvas } = pane;
-    const pointers = new Map(); // id → position à l'écran (clientX / clientY)
-    let pinch = null;
     let gesture = null;         // 'edit' | 'crop' | null
     let tap = null;             // pointeur : appui qui n'a pas bougé = sélection d'une case
 
@@ -279,7 +283,9 @@ export function createViewer(canvases, store, hooks) {
       if (gesture === 'edit') hooks.onEditPointer('up', null);
       else if (gesture === 'crop') hooks.onCropPointer('cancel', null);
       gesture = null;
+      tap = null;
     }
+    endAllGestures.push(endGesture);
 
     canvas.addEventListener('wheel', (e) => {
       // si la page défile (téléphone, petite fenêtre), la molette la fait défiler ;
@@ -294,20 +300,19 @@ export function createViewer(canvases, store, hooks) {
     }, { passive: false });
 
     canvas.addEventListener('pointerdown', (e) => {
-      // sans outil, un doigt ou un stylet ne touche pas à l'image : le navigateur
-      // fait défiler la page (CSS touch-action: auto). La souris peut toujours déplacer.
-      if (e.pointerType !== 'mouse' && store.get().tool === 'none') return;
+      // sans outil, un doigt ne touche pas à l'image (la page défile, CSS pan-y),
+      // mais deux doigts la zooment. La souris peut toujours déplacer.
       canvas.setPointerCapture(e.pointerId);
       pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (pointers.size === 2) {
-        endGesture();
-        tap = null;
+        endAllGestures.forEach((end) => end());
         const [a, b] = [...pointers.values()];
         pinch = { dist: Math.hypot(a.x - b.x, a.y - b.y), mid: [(a.x + b.x) / 2, (a.y + b.y) / 2] };
         return;
       }
       if (pointers.size > 2 || e.button !== 0) return;
       const { tool } = store.get();
+      if (tool === 'none' && e.pointerType !== 'mouse') return;
       if (pane.kind === 'result' && EDIT_TOOLS.has(tool)) {
         gesture = 'edit';
         hooks.onEditPointer('down', cellAt(pane, ...localOf(e.clientX, e.clientY)));
@@ -333,13 +338,15 @@ export function createViewer(canvases, store, hooks) {
         const mid = [(a.x + b.x) / 2, (a.y + b.y) / 2];
         // glisser à deux doigts fait défiler la page, écarter / pincer zoome
         window.scrollBy(pinch.mid[0] - mid[0], pinch.mid[1] - mid[1]);
-        if (pinch.dist > 0 && dist > 0) zoomAt(pane, dist / pinch.dist, ...localOf(mid[0], mid[1]));
+        if (pinch.dist > 0 && dist > 0) {
+          zoomAt(pane, Math.min(2, Math.max(0.5, dist / pinch.dist)), ...localOf(mid[0], mid[1]));
+        }
         pinch = { dist, mid };
       } else if (gesture === 'edit') {
         hooks.onEditPointer('move', cellAt(pane, ...localOf(cur.x, cur.y)));
       } else if (gesture === 'crop') {
         hooks.onCropPointer('move', sourcePoint(e));
-      } else if (pointers.size === 1 && !tap) {
+      } else if (pointers.size === 1 && !tap && (e.pointerType === 'mouse' || store.get().tool !== 'none')) {
         cam.cx -= (cur.x - prev.x) / cam.scale;
         cam.cy -= (cur.y - prev.y) / cam.scale;
         redraw();

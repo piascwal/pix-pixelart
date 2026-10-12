@@ -142,7 +142,7 @@ body:not(.has-image) .needs-image { visibility: hidden; }
   cursor: grab;
 }
 /* sans outil, le doigt fait défiler la page comme partout ailleurs */
-.stage[data-tool="none"] .pane canvas { touch-action: auto; }
+.stage[data-tool="none"] .pane canvas { touch-action: pan-y; }
 .pane canvas:active { cursor: grabbing; }
 .stage[data-tool="pencil"] .pane-result canvas,
 .stage[data-tool="eraser"] .pane-result canvas,
