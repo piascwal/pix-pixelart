@@ -132,3 +132,5 @@ npm start         # http-server sur http://localhost:8080
 ## Déploiement
 
 GitHub Pages, branche `main`, dossier racine (`/`). Aucun build : chaque push sur `main` est en ligne en une minute environ. Le fichier `.nojekyll` évite tout traitement Jekyll.
+
+`sw.js` est un petit service worker qui revalide chaque fichier de l'application auprès du serveur : sans lui, juste après une mise en ligne, le navigateur pouvait garder jusqu'à 10 minutes l'ancien JavaScript avec la nouvelle page (un bouton visible qui ne fait rien). Il ne met rien en cache et ne voit aucune image.
