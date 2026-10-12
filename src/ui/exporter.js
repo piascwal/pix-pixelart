@@ -94,11 +94,18 @@ export function createExporter(root, store) {
     for (const btn of buttons) {
       btn.disabled = !ok;
       const f = Number(btn.dataset.export);
-      btn.title = ok ? `${out.width * f} × ${out.height * f} px` : '';
+      btn.replaceChildren(btn.dataset.label);
+      if (!ok) continue;
+      const size = document.createElement('span');
+      size.className = 'size';
+      size.textContent = `${out.width * f} × ${out.height * f}`;
+      btn.append(size);
+      btn.title = `Fichier de ${out.width * f} × ${out.height * f} px`;
     }
+    // la chaîne, dans l'ordre : pixel art (réglages de la grille) → toile éventuelle → agrandissement
     info.textContent = !ok ? ''
-      : out === edited ? `Taille native : ${edited.width} × ${edited.height} px`
-        : `Toile ${out.width} × ${out.height} px (image ${edited.width} × ${edited.height} px, centrée)`;
+      : out === edited ? `Pixel art : ${edited.width} × ${edited.height} px`
+        : `Pixel art : ${edited.width} × ${edited.height} px, posé sur une toile de ${out.width} × ${out.height} px`;
   }
   watch(store, ['edited', 'settings'], render);
   render();
