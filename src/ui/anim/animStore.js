@@ -3,7 +3,7 @@
 // l'étape et l'outil en cours, l'historique annuler / rétablir.
 
 import { createStore } from '../state.js';
-import { createRig, composeFrame, applyEdits, completeParts, fillPoseGaps, BODY } from '../../core/rig.js';
+import { createRig, composeFrame, applyEdits, completeParts, fillPoseGaps, inferJoints, BODY } from '../../core/rig.js';
 import { inBetween } from '../../core/poses.js';
 import { detectLimbs, walkPoses } from '../../core/walk.js';
 import { cloneImage } from '../../core/image.js';
@@ -295,6 +295,8 @@ export function interpolateFrames(count) {
 
 /** Remplace les images par un cycle de marche de 8 poses. Renvoie false s'il n'y a ni bras ni jambe à animer. */
 export function generateWalk(style = anim.get().walkStyle) {
+  // les pièces sont déjà découpées : on en déduit articulations et hiérarchie manquantes
+  if (inferJoints(anim.get().base, anim.get().rig)) bump();
   ensurePivots();
   const { base, rig } = anim.get();
   const limbs = detectLimbs(base, rig);

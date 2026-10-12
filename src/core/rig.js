@@ -200,6 +200,70 @@ export function composeFrame(base, rig, pose, { jointRadius = 1.6 } = {}) {
 }
 
 /**
+ * Retrouve articulations et hiérarchie à partir des pièces déjà découpées, pour les
+ * pièces dont le pivot n'est pas placé (ou rattachées au corps alors qu'elles touchent
+ * une pièce plus proche du corps, comme un avant-bras contre son bras).
+ *   - parent = la pièce voisine la plus proche du centre du corps, sinon le corps ;
+ *   - pivot = le milieu de la zone de contact avec ce parent.
+ * Les pivots déjà placés à la main ne bougent pas. @returns {number} pièces modifiées
+ */
+export function inferJoints(base, rig) {
+  const { width: w, height: h } = rig;
+  const op = (i) => base.data[i * 4 + 3] > 0;
+  const stat = new Map();    // label → { n, sx, sy }
+  const contact = new Map(); // `${a}>${b}` → { n, sx, sy } (pixels de a qui touchent b)
+  for (let i = 0; i < w * h; i++) {
+    if (!op(i)) continue;
+    const x = i % w, y = (i / w) | 0, a = rig.labels[i];
+    const st = stat.get(a) || { n: 0, sx: 0, sy: 0 };
+    st.n++; st.sx += x + 0.5; st.sy += y + 0.5; stat.set(a, st);
+    for (const j of [x + 1 < w ? i + 1 : -1, y + 1 < h ? i + w : -1, x > 0 ? i - 1 : -1, y > 0 ? i - w : -1]) {
+      if (j < 0 || !op(j) || rig.labels[j] === a) continue;
+      const k = `${a}>${rig.labels[j]}`;
+      const c = contact.get(k) || { n: 0, sx: 0, sy: 0 };
+      c.n++; c.sx += x + 0.5; c.sy += y + 0.5; contact.set(k, c);
+    }
+  }
+  const body = stat.get(BODY);
+  if (!body) return 0;
+  const bx = body.sx / body.n, by = body.sy / body.n;
+  const dist = (id) => { const s = stat.get(id); return Math.hypot(s.sx / s.n - bx, s.sy / s.n - by); };
+  let changed = 0;
+  for (const part of rig.parts) {
+    if (part.id === BODY || !stat.has(part.id)) continue;
+    const manual = part.pivotSet === true;
+    if (manual && part.parent !== BODY && part.parent !== null && part.parent !== undefined) continue;
+    // voisines plus proches du corps que cette pièce
+    let parent = BODY, best = -1;
+    for (const q of rig.parts) {
+      if (q.id === BODY || q.id === part.id || !stat.has(q.id)) continue;
+      const c = contact.get(`${part.id}>${q.id}`);
+      if (!c || dist(q.id) >= dist(part.id)) continue;
+      if (c.n > best) { best = c.n; parent = q.id; }
+    }
+    if (manual && parent === BODY) continue;
+    const c = contact.get(`${part.id}>${parent}`);
+    if (!manual) {
+      if (c) part.pivot = { x: Math.round(c.sx / c.n - 0.5) + 0.5, y: Math.round(c.sy / c.n - 0.5) + 0.5 };
+      else {
+        // aucune pièce voisine : l'extrémité de la pièce la plus proche du corps
+        let bestI = -1, bd = Infinity;
+        for (let i = 0; i < w * h; i++) {
+          if (rig.labels[i] !== part.id || !op(i)) continue;
+          const d = Math.hypot((i % w) + 0.5 - bx, ((i / w) | 0) + 0.5 - by);
+          if (d < bd) { bd = d; bestI = i; }
+        }
+        part.pivot = { x: (bestI % w) + 0.5, y: ((bestI / w) | 0) + 0.5 };
+      }
+      part.pivotSet = true;
+    }
+    part.parent = parent;
+    changed++;
+  }
+  return changed;
+}
+
+/**
  * Comble les vides qu'ouvre le mouvement des membres : autour de l'articulation de
  * chaque pièce qui a bougé, les pixels vides situés dans la silhouette de repos
  * prennent la couleur de leurs voisins, de proche en proche.

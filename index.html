@@ -273,6 +273,9 @@
           <button type="button" data-anim-brush="3">3</button>
         </div>
       </div>
+      <div class="tool-group" data-anim-tools="pose" hidden>
+        <button type="button" class="icon-btn text" id="anim-fill" data-tip="Compléter : boucher les vides ouverts par les membres déplacés, sur cette image" aria-label="Compléter"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#wand-sparkles"/></svg><span>Compléter</span></button>
+      </div>
       <div class="tool-group" data-anim-tools="touch" hidden>
         <button type="button" class="icon-btn" data-anim-tool="pencil" data-tip="Crayon" aria-label="Crayon"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#pencil"/></svg><span class="current-color" id="anim-color"></span></button>
         <button type="button" class="icon-btn" data-anim-tool="eraser" data-tip="Gomme" aria-label="Gomme"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#eraser"/></svg></button>
@@ -326,7 +329,6 @@
           <label class="unit" for="anim-dy">Y</label><input type="number" id="anim-dy" step="1"><span class="unit">px</span>
         </div>
       </div>
-      <button type="button" class="btn btn-small" id="anim-fill" data-tip="Compléter : boucher les vides ouverts par les membres déplacés, sur cette image"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#wand-sparkles"/></svg> Compléter</button>
       <button type="button" class="btn btn-small" id="anim-reset-pose"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#rotate-ccw"/></svg> Remettre au repos</button>
     </section>
     <section class="card" data-anim-card="pose" hidden>

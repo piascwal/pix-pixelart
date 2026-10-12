@@ -211,6 +211,10 @@ export function createAnimView(canvas, container) {
     zoomAt(Math.exp(-e.deltaY * (e.deltaMode === 1 ? 30 : 1) * speed), sx, sy);
   }, { passive: false });
 
+  // le maintien long ne doit déclencher ni menu contextuel ni sélection du navigateur
+  for (const type of ['contextmenu', 'selectstart', 'dragstart']) canvas.addEventListener(type, (e) => e.preventDefault());
+  container.addEventListener('selectstart', (e) => e.preventDefault());
+
   canvas.addEventListener('pointerdown', (e) => {
     const s = anim.get();
     if (!s.active) return;

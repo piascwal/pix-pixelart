@@ -1,6 +1,7 @@
 // Cycle de marche prêt à l'emploi à partir d'un sprite découpé.
 //
-// Les membres sont reconnus par leur géométrie et la hiérarchie, pas par leur nom :
+// Les membres sont reconnus par leur nom quand il est parlant (bras, jambe, cuisse…),
+// sinon par leur géométrie et la hiérarchie :
 //   - une pièce rattachée au corps, avec son pivot dans la moitié basse du sprite, est
 //     une jambe (cuisse) ; sa pièce enfant est le bas de jambe ;
 //   - dans la moitié haute, une pièce allongée est un bras (haut du bras), son enfant
@@ -13,6 +14,8 @@
 import { BODY } from './rig.js';
 import { opaqueBounds } from './rotsprite.js';
 
+const LEG_WORDS = /jambe|cuisse|mollet|tibia|genou|pied|leg|thigh|shin|calf|foot|knee/i;
+const ARM_WORDS = /bras|[ée]paule|coude|main|arm|hand|shoulder|elbow/i;
 const HEAD_WORDS = /t[eê]te|head|visage|cheveux|objet|raquette|balle|ball|racket/i;
 
 /** Pixels, centre et boîte de chaque pièce. */
@@ -69,18 +72,19 @@ export function detectLimbs(base, rig) {
     if (part.parent !== BODY && part.parent !== null && part.parent !== undefined) continue;   // racine seulement
     if (HEAD_WORDS.test(part.name)) continue;
     const st = stats.get(part.id);
+    const named = LEG_WORDS.test(part.name) ? 'leg' : ARM_WORDS.test(part.name) ? 'arm' : null;
     const chain = chainFrom(part.id).filter((id) => !HEAD_WORDS.test(rig.parts.find((p) => p.id === id).name));
     const cx = st.sx / st.n, cy = st.sy / st.n;
     const dx = cx - part.pivot.x, dy = cy - part.pivot.y;
     const len = Math.hypot(dx, dy);
     const w = st.x1 - st.x0 + 1, h = st.y1 - st.y0 + 1;
     const side = part.pivot.x < centerX ? -1 : 1;
-    const down = part.pivot.y > midY;
+    const down = named ? named === 'leg' : part.pivot.y > midY;
     // tête : pièce courte, au centre du corps, en haut
     const bodyW = body ? body.x1 - body.x0 + 1 : bounds.x1 - bounds.x0 + 1;
-    if (!down && chain.length === 1 && Math.max(w, h) / Math.min(w, h) < 1.6 && Math.abs(cx - centerX) < 0.25 * bodyW) continue;
-    if (len < 1) continue;
-    const theta = Math.atan2(dy, dx);
+    if (!named && !down && chain.length === 1 && Math.max(w, h) / Math.min(w, h) < 1.6 && Math.abs(cx - centerX) < 0.25 * bodyW) continue;
+    // pivot confondu avec le centre de la pièce : on suppose le membre pendant vers le bas
+    const theta = len < 1 ? Math.PI / 2 : Math.atan2(dy, dx);
     const baseAngle = ((Math.PI / 2 - theta) * 180) / Math.PI;     // pour pendre vers le bas
     const limb = { side, parts: chain, base: Math.round(((baseAngle + 540) % 360) - 180) };
     (down ? legs : arms).push(limb);

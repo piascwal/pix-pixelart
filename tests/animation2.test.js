@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { encodeGif, lzwEncode, buildPalette } from '../src/core/gif.js';
 import { lerpPose, inBetween } from '../src/core/poses.js';
 import { detectLimbs, walkPoses } from '../src/core/walk.js';
-import { createRig, completeParts, composeFrame, BODY } from '../src/core/rig.js';
+import { createRig, completeParts, composeFrame, inferJoints, BODY } from '../src/core/rig.js';
 import { createImage } from '../src/core/image.js';
 import { rng } from './helpers/synthetic.js';
 
@@ -236,4 +236,24 @@ test('marche : rien à animer sans membre', () => {
   const base = createImage(10, 10);
   for (let y = 0; y < 10; y++) for (let x = 0; x < 10; x++) put(base, x, y, RED);
   assert.equal(detectLimbs(base, createRig(10, 10)), null);
+});
+
+test('articulations déduites : pivots absents et tout rattaché au corps, la marche fonctionne quand même', () => {
+  // torse 6 × 8 ; jambe en deux pièces (cuisse puis mollet) dessous
+  const img = createImage(12, 24);
+  for (let y = 2; y < 10; y++) for (let x = 3; x < 9; x++) img.data.set([200, 50, 50, 255], (y * 12 + x) * 4);
+  for (let y = 10; y < 22; y++) for (let x = 4; x < 6; x++) img.data.set([50, 50, 200, 255], (y * 12 + x) * 4);
+  for (let y = 2; y < 10; y++) for (let x = 0; x < 3; x++) img.data.set([50, 200, 50, 255], (y * 12 + x) * 4);
+  const rig = createRig(12, 24);
+  const add = (name) => { const id = Math.max(...rig.parts.map((p) => p.id)) + 1; rig.parts.push({ id, name, parent: BODY, pivot: { x: 0, y: 0 }, pivotSet: false }); rig.order.push(id); return id; };
+  const thigh = add('Cuisse'), shin = add('Jambe'), arm = add('Bras');
+  for (let y = 10; y < 22; y++) for (let x = 4; x < 6; x++) rig.labels[y * 12 + x] = y < 16 ? thigh : shin;
+  for (let y = 2; y < 10; y++) for (let x = 0; x < 3; x++) rig.labels[y * 12 + x] = arm;
+  assert.ok(inferJoints(img, rig) >= 3);
+  const byId = (id) => rig.parts.find((p) => p.id === id);
+  assert.equal(byId(shin).parent, thigh);                // le mollet s'accroche à la cuisse
+  assert.equal(byId(thigh).parent, BODY);
+  assert.ok(Math.abs(byId(shin).pivot.y - 16) <= 1);     // articulation entre les deux pièces
+  const limbs = detectLimbs(img, rig);
+  assert.ok(limbs && limbs.legs.length === 1 && limbs.legs[0].parts.length === 2 && limbs.arms.length === 1);
 });

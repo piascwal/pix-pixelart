@@ -512,3 +512,9 @@ input.part-name { padding: 3px 6px; border: 1px solid var(--line); border-radius
   .anim-stage { display: flex; flex-direction: column; }
   .anim-view { flex: 1; height: auto; min-height: 0; }
 }
+
+/* maintien long sur tablette : ni sélection de texte, ni loupe, ni menu contextuel */
+.anim-stage, .anim-view, .anim-view canvas {
+  -webkit-user-select: none; user-select: none;
+  -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
+}
