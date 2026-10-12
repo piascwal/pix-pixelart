@@ -277,11 +277,48 @@ export function completeParts(base, rig) {
     const parent = parentOf(rig, p);
     if (parent !== null && parent !== BODY) children.set(parent, [...(children.get(parent) || []), p.id]);
   }
+  // Un pivot d'épaule est souvent placé à l'intérieur du torse : sans précaution, la pièce
+  // se répandrait dans toute la bande de torse qui borde le membre. On cherche donc, en
+  // remontant du membre vers le pivot, l'endroit où l'épaisseur du membre bondit
+  // (le membre débouche sur le corps) : c'est la vraie frontière.
+  const opaqueAt = (x, y) => x >= 0 && y >= 0 && x < w && y < h && opaque(y * w + x);
+  const thicknessAt = (px, py, n) => {
+    let count = 1;
+    for (const sign of [1, -1]) {
+      for (let k = 1; k <= 64; k++) {
+        if (!opaqueAt(Math.floor(px + sign * n.x * k), Math.floor(py + sign * n.y * k))) break;
+        count++;
+      }
+    }
+    return count;
+  };
+  const cut = new Map();   // pièce → coordonnée minimale le long de son axe, depuis le pivot
+  for (const [id, sum] of sums) {
+    const part = byId.get(id);
+    const a = axis.get(id);
+    if (!part || !a || part.pivotSet === false) continue;
+    const n = { x: -a.y, y: a.x };
+    const samples = [];
+    for (let i = 0; i < rig.labels.length && samples.length < 40; i += 1) {
+      if (rig.labels[i] !== id || !opaque(i)) continue;
+      samples.push(thicknessAt((i % w) + 0.5, Math.floor(i / w) + 0.5, n));
+    }
+    samples.sort((m, k) => m - k);
+    const t0 = samples[samples.length >> 1] || 1;
+    let min = -0.5;
+    const s0 = Math.hypot(sum.x / sum.n - part.pivot.x, sum.y / sum.n - part.pivot.y);
+    for (let sPos = s0; sPos >= -0.5; sPos -= 0.5) {
+      const px = part.pivot.x + a.x * sPos, py = part.pivot.y + a.y * sPos;
+      if (thicknessAt(px, py, n) > 1.8 * t0 + 2) { min = sPos + 0.5; break; }
+    }
+    cut.set(id, min);
+  }
+
   /** Le pixel (centre en x+0,5 ; y+0,5) est-il dans la zone autorisée de la pièce ? */
   const allowed = (id, x, y) => {
     const part = byId.get(id);
     const a = axis.get(id);
-    if (a && part.pivotSet !== false && (x + 0.5 - part.pivot.x) * a.x + (y + 0.5 - part.pivot.y) * a.y < -0.5) return false;
+    if (a && part.pivotSet !== false && (x + 0.5 - part.pivot.x) * a.x + (y + 0.5 - part.pivot.y) * a.y < (cut.get(id) ?? -0.5)) return false;
     for (const c of children.get(id) || []) {
       const kid = byId.get(c);
       const ka = axis.get(c);

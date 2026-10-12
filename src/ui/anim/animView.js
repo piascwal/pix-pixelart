@@ -21,6 +21,7 @@ const MAX_SCALE = 64;
 export function createAnimView(canvas, container) {
   const ctx = canvas.getContext('2d');
   const sprite = document.createElement('canvas');
+  const onionCanvas = document.createElement('canvas');
   const cam = { scale: 1, cx: 0, cy: 0 };
   let W = 0, H = 0;
   let fittedFor = '';
@@ -111,6 +112,24 @@ export function createAnimView(canvas, container) {
       sprite.width = image.width; sprite.height = image.height;
       sprite.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(image.data), image.width, image.height), 0, 0);
       const [ox, oy] = toScreen(0, 0);
+      if (s.onion && !s.playing && s.frames.length > 1) {
+        // pelure d'oignon : la pose d'avant en bleu, celle d'après en vert, sous l'image courante
+        const n = s.frames.length;
+        for (const [idx, tint, alpha] of [[(s.current - 1 + n) % n, '#3b8bff', 0.5], [(s.current + 1) % n, '#2fd47a', 0.4]]) {
+          if (idx === s.current) continue;
+          const o = frameImage(s.frames[idx]).image;
+          onionCanvas.width = o.width; onionCanvas.height = o.height;
+          const oc = onionCanvas.getContext('2d');
+          oc.putImageData(new ImageData(new Uint8ClampedArray(o.data), o.width, o.height), 0, 0);
+          oc.globalCompositeOperation = 'source-atop';
+          oc.fillStyle = tint;
+          oc.fillRect(0, 0, o.width, o.height);
+          oc.globalCompositeOperation = 'source-over';
+          ctx.globalAlpha = alpha;
+          ctx.drawImage(onionCanvas, ox, oy, o.width * k, o.height * k);
+        }
+        ctx.globalAlpha = 1;
+      }
       ctx.drawImage(sprite, ox, oy, image.width * k, image.height * k);
       if (s.step === 'pose' && !s.playing) {
         const world = worldTransforms(s.rig, s.frames[s.current].pose, { x: m, y: m });
@@ -335,7 +354,7 @@ export function createAnimView(canvas, container) {
   let frame = 0;
   const redraw = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; draw(); }); };
   watch(anim, ['active'], (s) => { if (s.active) { fittedFor = ''; requestAnimationFrame(resize); } });
-  watch(anim, ['base', 'version', 'frames', 'current', 'selected', 'step', 'tool'], redraw);
+  watch(anim, ['base', 'version', 'frames', 'current', 'selected', 'step', 'tool', 'onion'], redraw);
   watch(anim, ['pan'], panCursor);
   watch(anim, ['playing', 'fps'], syncPlayback);
   new ResizeObserver(resize).observe(container);

@@ -2,16 +2,19 @@
 // rattachement, ordre devant / derrière), pose de la pièce choisie, palette de
 // retouche, images (vignettes, lecture, ajout, suppression), export.
 
-import { BODY, spriteSheet } from '../../core/rig.js';
+import { BODY, spriteSheet, commonBounds } from '../../core/rig.js';
 import { usedColors } from '../../core/palette.js';
 import { toHex } from '../../core/image.js';
 import { upscale, flatten } from '../../core/upscale.js';
+import { encodeGif } from '../../core/gif.js';
+import { crop } from '../../core/image.js';
 import { watch } from '../state.js';
 import { toPngBlob, download } from '../exporter.js';
 import { icon } from '../icons.js';
+import { toast } from '../clipboard.js';
 import {
   anim, commit, undoLast, redoLast, addPart, removePart, updatePart, movePart, setPose,
-  addFrame, removeFrame, clearEdits, frameImage, partColor,
+  addFrame, removeFrame, clearEdits, frameImage, partColor, interpolateFrames, generateWalk, completeCut,
 } from './animStore.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -160,6 +163,22 @@ export function createAnimPanel(root, mainStore) {
   const strip = $('#anim-strip', root);
   $('#anim-add-frame', root).addEventListener('click', addFrame);
   $('#anim-del-frame', root).addEventListener('click', removeFrame);
+  const betweenN = $('#anim-between-n', root);
+  betweenN.addEventListener('input', () => {
+    const v = Math.round(Number(betweenN.value));
+    if (v >= 1 && v <= 12) anim.set({ between: v });
+  });
+  $('#anim-between', root).addEventListener('click', () => {
+    if (!interpolateFrames(anim.get().between)) toast('Il faut au moins deux images.');
+  });
+  $('#anim-onion', root).addEventListener('click', () => anim.set((s) => ({ onion: !s.onion })));
+  for (const b of root.querySelectorAll('[data-walk]')) b.addEventListener('click', () => anim.set({ walkStyle: b.dataset.walk }));
+  $('#anim-walk', root).addEventListener('click', () => {
+    if (!generateWalk(anim.get().walkStyle)) toast('Aucun membre trouvé : découpez d\u2019abord les bras et les jambes.');
+  });
+  $('#anim-complete', root).addEventListener('click', () => {
+    if (!completeCut()) toast('Rien à compléter : peignez quelques pixels sur chaque pièce et placez ses pivots.');
+  });
   $('#anim-play', root).addEventListener('click', () => anim.set((s) => ({ playing: !s.playing })));
   const fps = $('#anim-fps', root);
   fps.addEventListener('input', () => {
@@ -202,6 +221,19 @@ export function createAnimPanel(root, mainStore) {
         download(new Blob([JSON.stringify(meta, null, 2)], { type: 'application/json' }), `${name}.json`);
         return;
       }
+      if (b.dataset.animExport.startsWith('gif')) {
+        // toutes les images recadrées sur la même boîte, agrandies, puis encodées en GIF animé
+        const frames = s.frames.map((f) => frameImage(f).image);
+        const box = commonBounds(frames);
+        const scale = Number(b.dataset.animExport.slice(3));
+        const magenta = mainStore.get().settings.output === 'magenta';
+        const images = frames.map((f) => {
+          const big = upscale(crop(f, box.x, box.y, box.w, box.h), scale);
+          return magenta ? flatten(big) : big;
+        });
+        download(new Blob([encodeGif(images, { delayMs: Math.round(1000 / s.fps) })], { type: 'image/gif' }), `${name}${scale > 1 ? '-x' + scale : ''}.gif`);
+        return;
+      }
       const factor = Number(b.dataset.animExport);
       let img = upscale(sheet.image, factor);
       if (mainStore.get().settings.output === 'magenta') img = flatten(img);
@@ -218,6 +250,10 @@ export function createAnimPanel(root, mainStore) {
     for (const b of root.querySelectorAll('[data-anim-brush]')) b.setAttribute('aria-pressed', String(Number(b.dataset.animBrush) === s.brush));
     for (const c of root.querySelectorAll('[data-anim-card]')) c.hidden = !c.dataset.animCard.split(' ').includes(s.step);
     $('#anim-pan', root).setAttribute('aria-pressed', String(s.pan));
+    $('#anim-onion', root).setAttribute('aria-pressed', String(s.onion));
+    $('#anim-between', root).disabled = s.frames.length < 2;
+    for (const b of root.querySelectorAll('[data-walk]')) b.setAttribute('aria-pressed', String(b.dataset.walk === s.walkStyle));
+    if (document.activeElement !== betweenN) betweenN.value = String(s.between);
     $('#anim-undo', root).disabled = !s.history.undo;
     $('#anim-redo', root).disabled = !s.history.redo;
     $('#anim-del-frame', root).disabled = s.frames.length <= 1;
@@ -233,6 +269,6 @@ export function createAnimPanel(root, mainStore) {
   watch(anim, ['frames', 'current', 'selected', 'version'], renderPose);
   watch(anim, ['base', 'color'], renderSwatches);
   watch(anim, ['frames', 'current', 'version', 'base'], () => renderStrip());
-  watch(anim, ['step', 'tool', 'brush', 'history', 'frames', 'current', 'playing', 'color', 'fps', 'pan'], renderBars);
+  watch(anim, ['step', 'tool', 'brush', 'history', 'frames', 'current', 'playing', 'color', 'fps', 'pan', 'onion', 'walkStyle', 'between'], renderBars);
   watch(anim, ['active'], (s) => { if (s.active) { renderParts(); renderPose(); renderSwatches(); renderStrip(); renderBars(); } });
 }

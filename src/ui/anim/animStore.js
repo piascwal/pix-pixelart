@@ -3,7 +3,9 @@
 // l'étape et l'outil en cours, l'historique annuler / rétablir.
 
 import { createStore } from '../state.js';
-import { createRig, composeFrame, applyEdits, BODY } from '../../core/rig.js';
+import { createRig, composeFrame, applyEdits, completeParts, BODY } from '../../core/rig.js';
+import { inBetween } from '../../core/poses.js';
+import { detectLimbs, walkPoses } from '../../core/walk.js';
 import { cloneImage } from '../../core/image.js';
 
 const NAMES = ['Bras gauche', 'Avant-bras gauche', 'Bras droit', 'Avant-bras droit', 'Cuisse gauche',
@@ -26,6 +28,9 @@ export const anim = createStore({
   playing: false,
   fps: 8,
   pan: false,        // outil main : glisser déplace la vue, jamais le personnage
+  onion: false,      // pelure d'oignon : image précédente et suivante en transparence
+  walkStyle: 'face', // face | droite | gauche
+  between: 3,        // nombre d'images à intercaler
   version: 0,        // incrémenté à chaque changement du découpage
   history: { undo: 0, redo: 0 },
 });
@@ -171,9 +176,12 @@ export function placePivot(id, x, y) {
         votes.set(l, (votes.get(l) || 0) + 1);
       }
     }
-    let best = null, n = 0;
+    // les pixels pas encore attribués (le corps) sont toujours les plus nombreux : on ne
+    // retient le corps que si aucune autre pièce ne touche le pivot
+    votes.delete(BODY);
+    let best = BODY, n = 0;
     for (const [l, v] of votes) if (v > n) { n = v; best = l; }
-    if (best !== null) part.parent = best;
+    part.parent = best;
   }
   bump();
 }
@@ -263,4 +271,50 @@ export function frameImage(frame) {
   const result = { ...composed, image: applyEdits(composed.image, frame.edits) };
   cache.set(frame, { version: s.version, base: s.base, result });
   return result;
+}
+
+/* ------------------------------------------------- étapes 2 et 3 : automatismes */
+
+/**
+ * Insère `count` images entre l'image courante et la suivante (la dernière boucle
+ * vers la première), poses réparties régulièrement. Renvoie le nombre d'images ajoutées.
+ */
+export function interpolateFrames(count) {
+  const s = anim.get();
+  const n = s.frames.length;
+  if (n < 2 || count < 1) return 0;
+  const i = s.current;
+  const j = i < n - 1 ? i + 1 : 0;
+  commit();
+  const fresh = inBetween(s.frames[i].pose, s.frames[j].pose, count).map((pose) => ({ pose, edits: new Map() }));
+  const frames = [...s.frames];
+  frames.splice(i + 1, 0, ...fresh);
+  anim.set({ frames, current: i + 1 });
+  return count;
+}
+
+/** Remplace les images par un cycle de marche de 8 poses. Renvoie false s'il n'y a ni bras ni jambe à animer. */
+export function generateWalk(style = anim.get().walkStyle) {
+  ensurePivots();
+  const { base, rig } = anim.get();
+  const limbs = detectLimbs(base, rig);
+  if (!limbs) return false;
+  commit();
+  const frames = walkPoses(limbs, { style }).map((pose) => ({ pose, edits: new Map() }));
+  anim.set({ frames, current: 0, step: 'pose', playing: false });
+  return true;
+}
+
+/** Étend les pièces peintes jusqu'aux pivots. Renvoie le nombre de pixels attribués (0 : rien n'a changé). */
+export function completeCut() {
+  const before = snapshot();
+  const { base, rig } = anim.get();
+  const n = completeParts(base, rig);
+  if (!n) return 0;
+  undo.push(before);
+  if (undo.length > MAX_HISTORY) undo.shift();
+  redo = [];
+  publish();
+  bump();
+  return n;
 }

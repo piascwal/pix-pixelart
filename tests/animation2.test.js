@@ -159,6 +159,18 @@ test('découpage assisté : quelques graines suffisent, les pivots fixent les fr
   assert.notEqual(at(17, 33), 6);
 });
 
+test('découpage assisté : pivot d\'épaule à l\'intérieur du torse, le torse n\'est pas happé', () => {
+  const { base, rig } = figure();
+  rig.parts.find((p) => p.id === 1).pivot = { x: 17.5, y: 11.5 };    // 2,5 px à l'intérieur du torse (x ≥ 15)
+  rig.parts.find((p) => p.id === 5).pivot = { x: 22.5, y: 11.5 };
+  completeParts(base, rig);
+  let leaked = 0;
+  for (let y = 0; y < 40; y++) for (let x = 15; x < 25; x++) if (rig.labels[y * 40 + x] === 1 || rig.labels[y * 40 + x] === 5) leaked++;
+  assert.equal(leaked, 0, `${leaked} pixels du torse attribués au bras`);
+  assert.equal(rig.labels[11 * 40 + 14], 1, 'le bras lui-même est bien attribué');
+  assert.equal(rig.labels[11 * 40 + 26], 5);
+});
+
 test('découpage assisté : sans pivot placé, rien ne déborde', () => {
   const { base, rig } = figure();
   rig.parts.find((p) => p.id === 1).pivotSet = false;

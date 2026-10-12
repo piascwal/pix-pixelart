@@ -30,19 +30,23 @@ Raccourcis : `M` déplacer, `B` crayon, `E` gomme, `I` pipette, `C` rogner, `+` 
 
 > Changer un réglage relance la conversion et efface les retouches : réglez d'abord, retouchez ensuite.
 
-## Animation (étape 1)
+## Animation
 
-Bouton **Animer** (barre d'outils, une fois l'image convertie) : un mode à part, qui travaille sur une copie du résultat retouché ; « Retour » ramène à la conversion, intacte, et le découpage est gardé si on revient.
+Bouton **Animer** (barre d'outils, une fois l'image convertie) : un mode à part, qui travaille sur une copie du résultat retouché ; « Retour » ramène à la conversion, intacte, et le découpage est gardé si on revient. Pensez à effacer ce qui ne doit pas bouger avec le personnage (la balle, par exemple) avant d'entrer.
 
 **La vue** ne touche jamais au personnage : molette ou pincement zooment à l'endroit visé ; la main (barre d'outils), la barre d'espace maintenue, le clic du milieu ou deux doigts déplacent la vue ; « Cadrer » remet tout le personnage à l'écran.
 
 1. **Découper** : « Ajouter une pièce », puis peindre ses pixels au pinceau (taille 1 à 3) ; la gomme les rend au corps. L'outil **pivot** place l'articulation (épaule, coude, hanche, genou…) : la pièce se rattache toute seule à celle qu'elle touche à cet endroit (l'avant-bras au bras), modifiable dans la liste. La liste règle aussi l'ordre devant / derrière.
-2. **Poser** : attraper un membre et glisser le fait tourner autour de son pivot, et ses enfants suivent ; glisser sur le corps ou dans le vide déplace la vue (le décalage du corps se règle dans le panneau, X / Y). Réglage précis : rotation en degrés et décalage en pixels.
+   **Compléter** (baguette) : quelques traits par pièce suffisent. Chaque pièce s'étend aux pixels reliés du corps en s'arrêtant aux pivots : jamais en deçà du sien, jamais au-delà de celui de sa pièce enfant (le coude coupe bras et avant-bras), et là où le membre débouche sur le torse même si le pivot d'épaule est placé dans le torse. Seuls les pixels du corps changent, tout s'annule d'un coup, et un pinceau permet de corriger.
+2. **Poser** : attraper un membre et glisser le fait tourner autour de son pivot, et ses enfants suivent ; glisser sur le corps ou dans le vide déplace la vue (le décalage du corps se règle dans le panneau, X / Y).
+   **Marche** : « Générer la marche » remplace les images par un cycle de 8 poses, à retoucher ensuite comme n'importe quelle pose. Les membres sont reconnus par leur géométrie et la hiérarchie (jambe : pièce rattachée au corps dans la moitié basse ; bras : pièce allongée dans la moitié haute ; une pièce ronde seule, la tête, est ignorée), le côté par la position du pivot, et le bras est ramené « pendu le long du corps » d'après sa direction réelle (bras écarté en T ou déjà baissé). *De face* : un pied se lève à tour de rôle, le corps descend aux appuis, les bras balancent un peu. *Vers la droite / gauche* (profil) : cuisses, genoux, bras et avant-bras, chaque bras à l'opposé de la jambe du même côté.
 3. **Retoucher** : crayon, gomme et pipette sur l'image courante, sans toucher aux autres.
 
-Images : « + » ajoute une image (copie de la pose courante), lecture en boucle, images par seconde réglables. Export : planche de sprites PNG (×1, ×4, ×8, fond transparent ou magenta selon le réglage) et JSON (taille des images, nombre, durées).
+**Images** : « + » ajoute une image (copie de la pose courante), lecture en boucle, images par seconde réglables. **Intercaler** : choisit un nombre d'images (1 à 12) et les calcule entre l'image courante et la suivante (la dernière boucle vers la première) en répartissant régulièrement les angles et décalages ; annulable d'un coup. **Pelure d'oignon** (calques) : l'image précédente en bleu et la suivante en vert, en transparence, pour caler la pose.
 
-Ce que l'automatique fait : rotation façon RotSprite (`src/core/rotsprite.js` : Scale2x ×3, rotation, rééchantillonnage ; pixels nets, aucune couleur nouvelle), disque de couleur sous les articulations qui bougent, et le corps rebouche ce qu'une pièce cachait quand c'est encadré par le corps (`src/core/rig.js`). Ce qu'il ne fait pas : inventer ce qui n'existe pas dans le sprite (dos, profil, main qui se ferme) ; les grandes rotations demandent des retouches.
+**Export** : planche de sprites PNG (×1, ×4, ×8, fond transparent ou magenta selon le réglage), JSON (taille des images, nombre, durées) et **GIF animé** ×4 ou ×8 (boucle infinie, transparence, toutes les images recadrées sur la même boîte ; encodeur maison dans `src/core/gif.js`, vérifié par un décodeur indépendant).
+
+Ce que l'automatique fait : rotation façon RotSprite (`src/core/rotsprite.js` : Scale2x ×3, rotation, rééchantillonnage ; pixels nets, aucune couleur nouvelle), disque de couleur sous les articulations qui bougent, et le corps rebouche ce qu'une pièce cachait quand c'est encadré par le corps (`src/core/rig.js`). Ce qu'il ne fait pas : inventer ce qui n'existe pas dans le sprite (dos, profil, main qui se ferme) ; les grandes rotations et les marches de profil à partir d'un personnage de face demandent des retouches.
 
 ## Ce qui est garanti, et ce qui ne l'est pas
 
@@ -91,8 +95,8 @@ src/ui/       state.js     état central + abonnements
               paletteView.js nuancier + fiche d'une couleur (hexa, exclure, remplacer)
               cropper.js   rognage de l'image de travail
               tooltips.js  noms des icônes (appui long / survol)
-              anim/        mode Animation : état (animStore), canevas (animView),
-                           panneau et images (animPanel), entrée / sortie (animMode)
+              anim/        mode Animation : état (animStore), canevas et caméra (animView),
+                           panneau, images, export (animPanel), entrée / sortie (animMode)
               clipboard.js copie et petit message « copié »
               editor.js    crayon, gomme, pipette, annuler / rétablir
               exporter.js  PNG natif et agrandi, palette en hexa

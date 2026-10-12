@@ -458,12 +458,14 @@ body.is-anim .mini-preview { display: none !important; }
 .anim-view.is-panning canvas:active { cursor: grabbing; }
 .anim-frames {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
   padding: 6px 8px;
   border-top: 1px solid var(--line);
 }
-.anim-strip { display: flex; flex: 1; gap: 6px; min-width: 0; overflow-x: auto; padding: 2px; }
+.anim-strip { display: flex; flex: 1 0 100%; order: 10; gap: 6px; min-width: 0; overflow-x: auto; padding: 2px; }
+#anim-between-n { width: 48px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); font-family: var(--mono); }
 .anim-strip .thumb {
   flex: none;
   height: 56px;

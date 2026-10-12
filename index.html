@@ -263,6 +263,7 @@
         <button type="button" class="icon-btn" data-anim-tool="paint" data-tip="Pinceau : attribuer des pixels à la pièce choisie" aria-label="Pinceau"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#paintbrush"/></svg></button>
         <button type="button" class="icon-btn" data-anim-tool="unpaint" data-tip="Gomme : rendre des pixels au corps" aria-label="Rendre au corps"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#eraser"/></svg></button>
         <button type="button" class="icon-btn" data-anim-tool="pivot" data-tip="Pivot : placer l'articulation de la pièce choisie" aria-label="Pivot"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#crosshair"/></svg></button>
+        <button type="button" class="icon-btn text" id="anim-complete" data-tip="Compléter : étendre chaque pièce aux pixels reliés, jusqu'aux pivots (seuls les pixels du corps changent)" aria-label="Compléter"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#wand-sparkles"/></svg><span class="hide-narrow">Compléter</span></button>
         <div class="segmented" role="group" aria-label="Taille du pinceau">
           <button type="button" data-anim-brush="1">1</button>
           <button type="button" data-anim-brush="2">2</button>
@@ -287,11 +288,15 @@
     <div class="anim-view" id="anim-view"><canvas id="anim-canvas"></canvas></div>
     <div class="anim-frames">
       <button type="button" class="icon-btn" id="anim-play" data-tip="Lecture / pause" aria-label="Lecture"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#play"/></svg></button>
-      <div class="anim-strip" id="anim-strip"></div>
       <span class="anim-count muted" id="anim-count"></span>
       <button type="button" class="icon-btn" id="anim-add-frame" data-tip="Nouvelle image (copie de la pose)" aria-label="Nouvelle image"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#plus"/></svg></button>
       <button type="button" class="icon-btn" id="anim-del-frame" data-tip="Supprimer l'image" aria-label="Supprimer l'image"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#trash-2"/></svg></button>
+      <span class="sep"></span>
+      <button type="button" class="icon-btn" id="anim-between" data-tip="Intercaler des images entre celle-ci et la suivante (la dernière boucle vers la première)" aria-label="Intercaler des images"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#between-horizontal-end"/></svg></button>
+      <input type="number" id="anim-between-n" min="1" max="12" step="1" aria-label="Nombre d'images à intercaler" data-tip="Nombre d'images à intercaler">
+      <button type="button" class="icon-btn" id="anim-onion" data-tip="Pelure d'oignon : l'image précédente (bleu) et la suivante (vert) en transparence" aria-label="Pelure d'oignon"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#layers"/></svg></button>
       <label class="anim-fps"><input type="number" id="anim-fps" min="1" max="30" step="1" aria-label="Images par seconde"> img/s</label>
+      <div class="anim-strip" id="anim-strip"></div>
     </div>
   </div>
 
@@ -320,6 +325,15 @@
       </div>
       <button type="button" class="btn btn-small" id="anim-reset-pose"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#rotate-ccw"/></svg> Remettre au repos</button>
     </section>
+    <section class="card" data-anim-card="pose" hidden>
+      <h2>Marche</h2>
+      <div class="segmented segmented-full" role="group" aria-label="Style de marche">
+        <button type="button" data-walk="face">De face</button>
+        <button type="button" data-walk="droite">Vers la droite</button>
+        <button type="button" data-walk="gauche">Vers la gauche</button>
+      </div>
+      <button type="button" class="btn btn-small btn-primary" id="anim-walk"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#footprints"/></svg> Générer la marche</button>
+    </section>
     <section class="card" data-anim-card="touch" hidden>
       <h2>Retouche</h2>
       <div class="swatches" id="anim-swatches"></div>
@@ -332,6 +346,10 @@
         <button type="button" class="btn" data-anim-export="4">×4</button>
         <button type="button" class="btn" data-anim-export="8">×8</button>
         <button type="button" class="btn" data-anim-export="json">JSON</button>
+      </div>
+      <div class="export-buttons two">
+        <button type="button" class="btn" data-anim-export="gif4">GIF ×4</button>
+        <button type="button" class="btn" data-anim-export="gif8">GIF ×8</button>
       </div>
     </section>
   </aside>
