@@ -216,18 +216,15 @@
           <option value="256">256 × 256</option>
           <option value="512">512 × 512</option>
         </select>
-        <p class="hint">Ajoute des marges transparentes autour du pixel art, sans le modifier, pour obtenir un fichier carré (64 × 64, 128 × 128…).</p>
+        <p class="hint">Pose l'image au centre d'une toile transparente de cette taille, sans la déformer : pour sortir du 64 × 64 ou du 128 × 128.</p>
       </div>
-      <div class="field">
-        <span class="label">Télécharger en</span>
-        <div class="export-buttons sizes">
-          <button type="button" class="btn btn-primary" data-export="1" data-label="Natif">Natif</button>
-          <button type="button" class="btn" data-export="2" data-label="×2">×2</button>
-          <button type="button" class="btn" data-export="4" data-label="×4">×4</button>
-          <button type="button" class="btn" data-export="8" data-label="×8">×8</button>
-        </div>
-        <p class="hint">« Natif » est le vrai pixel art : 1 case = 1 pixel. ×2, ×4, ×8 agrandissent chaque pixel en carré, sans flou.</p>
+      <div class="export-buttons">
+        <button type="button" class="btn btn-primary" data-export="1">Natif</button>
+        <button type="button" class="btn" data-export="2">×2</button>
+        <button type="button" class="btn" data-export="4">×4</button>
+        <button type="button" class="btn" data-export="8">×8</button>
       </div>
+      <p class="hint">Agrandissement au plus proche voisin : les pixels restent nets.</p>
 
       <h2>Exporter la palette</h2>
       <p class="hint" data-info="palette-export"></p>
