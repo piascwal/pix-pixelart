@@ -237,3 +237,76 @@ export function spriteSheet(images) {
   });
   return { image: sheet, frameWidth: b.w, frameHeight: b.h, count: images.length };
 }
+
+/* ------------------------------------------------------- découpage assisté */
+
+/**
+ * Complète le découpage : chaque pièce déjà peinte (même quelques traits) s'étend
+ * aux pixels voisins du corps qui lui sont reliés, en s'arrêtant aux pivots :
+ *   - jamais en deçà de son propre pivot (l'épaule ne mord pas sur le torse) ;
+ *   - jamais au-delà du pivot d'une pièce enfant (le coude coupe bras / avant-bras).
+ * Quand deux pièces se disputent un pixel, la plus proche l'emporte (parcours en
+ * largeur depuis tous les pixels déjà peints). Seuls les pixels du corps changent.
+ * @returns {number} nombre de pixels attribués
+ */
+export function completeParts(base, rig) {
+  const { width: w, height: h } = rig;
+  const opaque = (i) => base.data[i * 4 + 3] !== 0;
+  const byId = new Map(rig.parts.map((p) => [p.id, p]));
+
+  // axe de chaque pièce : du pivot vers le centre de ses pixels déjà peints
+  const sums = new Map();
+  for (let i = 0; i < rig.labels.length; i++) {
+    const l = rig.labels[i];
+    if (l === BODY || !opaque(i)) continue;
+    const s = sums.get(l) || { x: 0, y: 0, n: 0 };
+    s.x += (i % w) + 0.5; s.y += Math.floor(i / w) + 0.5; s.n++;
+    sums.set(l, s);
+  }
+  const axis = new Map();
+  for (const [id, s] of sums) {
+    const part = byId.get(id);
+    if (!part) continue;
+    const dx = s.x / s.n - part.pivot.x, dy = s.y / s.n - part.pivot.y;
+    const len = Math.hypot(dx, dy);
+    axis.set(id, len >= 1.5 ? { x: dx / len, y: dy / len } : null);
+  }
+  const children = new Map();
+  for (const p of rig.parts) {
+    if (p.id === BODY) continue;
+    const parent = parentOf(rig, p);
+    if (parent !== null && parent !== BODY) children.set(parent, [...(children.get(parent) || []), p.id]);
+  }
+  /** Le pixel (centre en x+0,5 ; y+0,5) est-il dans la zone autorisée de la pièce ? */
+  const allowed = (id, x, y) => {
+    const part = byId.get(id);
+    const a = axis.get(id);
+    if (a && part.pivotSet !== false && (x + 0.5 - part.pivot.x) * a.x + (y + 0.5 - part.pivot.y) * a.y < -0.5) return false;
+    for (const c of children.get(id) || []) {
+      const kid = byId.get(c);
+      const ka = axis.get(c);
+      if (!ka || kid.pivotSet === false) continue;
+      if ((x + 0.5 - kid.pivot.x) * ka.x + (y + 0.5 - kid.pivot.y) * ka.y >= -0.5) return false;
+    }
+    return true;
+  };
+
+  const queue = [];
+  for (let i = 0; i < rig.labels.length; i++) if (rig.labels[i] !== BODY && opaque(i)) queue.push(i);
+  let assigned = 0;
+  for (let head = 0; head < queue.length; head++) {
+    const i = queue[head];
+    const id = rig.labels[i];
+    if (byId.get(id)?.pivotSet === false) continue;   // pivot pas encore placé : on ne sait pas où s'arrêter
+    const x = i % w, y = (i - x) / w;
+    for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) {
+      if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+      const j = ny * w + nx;
+      if (rig.labels[j] !== BODY || !opaque(j) || !allowed(id, nx, ny)) continue;
+      rig.labels[j] = id;
+      assigned++;
+      queue.push(j);
+    }
+  }
+  return assigned;
+}
