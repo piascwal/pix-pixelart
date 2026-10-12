@@ -23,7 +23,10 @@ export function setupAnimation(mainStore) {
     window.scrollTo(0, 0);
   });
 
-  createAnimView(document.querySelector('#anim-canvas'), document.querySelector('#anim-view'));
+  const view = createAnimView(document.querySelector('#anim-canvas'), document.querySelector('#anim-view'));
+  document.querySelector('#anim-zoom-in').addEventListener('click', view.zoomIn);
+  document.querySelector('#anim-zoom-out').addEventListener('click', view.zoomOut);
+  document.querySelector('#anim-fit').addEventListener('click', view.fit);
   createAnimPanel(section, mainStore);
 
   window.addEventListener('keydown', (e) => {

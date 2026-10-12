@@ -447,14 +447,15 @@ body.has-image.is-dragging .dropzone {
 body.is-anim .mini-preview { display: none !important; }
 .anim-view {
   position: relative;
-  display: grid;
-  place-items: center;
-  min-height: 52vh;
-  overflow: auto;
-  padding: 8px;
+  height: 56vh;
+  height: 56dvh;
+  min-height: 300px;
+  overflow: hidden;
   background: repeating-conic-gradient(#2a2638 0% 25%, #221e30 0% 50%) 0 0 / 16px 16px;
 }
-.anim-view canvas { image-rendering: pixelated; touch-action: none; cursor: crosshair; }
+.anim-view canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+.anim-view.is-panning canvas { cursor: grab; }
+.anim-view.is-panning canvas:active { cursor: grabbing; }
 .anim-frames {
   display: flex;
   align-items: center;
@@ -506,5 +507,5 @@ input.part-name { padding: 3px 6px; border: 1px solid var(--line); border-radius
 .part-tools .icon-btn .icon { width: 16px; height: 16px; }
 @media (min-width: 1000px) {
   .anim-stage { display: flex; flex-direction: column; }
-  .anim-view { flex: 1; min-height: 0; }
+  .anim-view { flex: 1; height: auto; min-height: 0; }
 }

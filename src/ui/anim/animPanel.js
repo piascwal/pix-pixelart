@@ -43,13 +43,7 @@ export function createAnimPanel(root, mainStore) {
   for (const b of root.querySelectorAll('[data-anim-brush]')) b.addEventListener('click', () => anim.set({ brush: Number(b.dataset.animBrush) }));
   $('#anim-undo', root).addEventListener('click', undoLast);
   $('#anim-redo', root).addEventListener('click', redoLast);
-  $('#anim-zoom-in', root).addEventListener('click', () => anim.set((s) => ({ zoom: Math.min(32, (s.zoom || currentScale()) + 1) })));
-  $('#anim-zoom-out', root).addEventListener('click', () => anim.set((s) => ({ zoom: Math.max(1, (s.zoom || currentScale()) - 1) })));
-  const currentScale = () => {
-    const c = $('#anim-canvas', root);
-    const { frames, current } = anim.get();
-    return Math.max(1, Math.round(c.clientWidth / frameImage(frames[current]).image.width));
-  };
+  $('#anim-pan', root).addEventListener('click', () => anim.set((s) => ({ pan: !s.pan })));
 
   /* -------------------------------------------------------------- pièces */
   const list = $('#anim-part-list', root);
@@ -223,6 +217,7 @@ export function createAnimPanel(root, mainStore) {
     for (const b of root.querySelectorAll('[data-anim-tool]')) b.setAttribute('aria-pressed', String(b.dataset.animTool === s.tool));
     for (const b of root.querySelectorAll('[data-anim-brush]')) b.setAttribute('aria-pressed', String(Number(b.dataset.animBrush) === s.brush));
     for (const c of root.querySelectorAll('[data-anim-card]')) c.hidden = !c.dataset.animCard.split(' ').includes(s.step);
+    $('#anim-pan', root).setAttribute('aria-pressed', String(s.pan));
     $('#anim-undo', root).disabled = !s.history.undo;
     $('#anim-redo', root).disabled = !s.history.redo;
     $('#anim-del-frame', root).disabled = s.frames.length <= 1;
@@ -238,6 +233,6 @@ export function createAnimPanel(root, mainStore) {
   watch(anim, ['frames', 'current', 'selected', 'version'], renderPose);
   watch(anim, ['base', 'color'], renderSwatches);
   watch(anim, ['frames', 'current', 'version', 'base'], () => renderStrip());
-  watch(anim, ['step', 'tool', 'brush', 'history', 'frames', 'current', 'playing', 'color', 'fps'], renderBars);
+  watch(anim, ['step', 'tool', 'brush', 'history', 'frames', 'current', 'playing', 'color', 'fps', 'pan'], renderBars);
   watch(anim, ['active'], (s) => { if (s.active) { renderParts(); renderPose(); renderSwatches(); renderStrip(); renderBars(); } });
 }

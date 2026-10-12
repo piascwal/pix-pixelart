@@ -25,7 +25,7 @@ export const anim = createStore({
   color: null,       // couleur du crayon de retouche
   playing: false,
   fps: 8,
-  zoom: 0,           // 0 : ajusté à la place disponible
+  pan: false,        // outil main : glisser déplace la vue, jamais le personnage
   version: 0,        // incrémenté à chaque changement du découpage
   history: { undo: 0, redo: 0 },
 });
