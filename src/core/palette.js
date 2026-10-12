@@ -142,6 +142,11 @@ export const EMPTY_RULES = Object.freeze({ excluded: Object.freeze([]), replace:
  * Couleur finale de chaque couleur de la palette une fois les choix appliqués.
  * Les règles qui visent une couleur absente de la palette sont ignorées
  * (la palette change quand on change le nombre de couleurs ou la grille).
+ *
+ * Ordre : on suit les remplacements (A → B → C) ; si l'on arrive sur une couleur
+ * écartée, on prend la couleur non écartée la plus proche, ET on lui applique à
+ * son tour ses remplacements (sinon les pixels d'une couleur écartée resteraient
+ * sur une couleur pourtant remplacée).
  * @returns {Array<[number, number, number]>} targets, de même longueur que palette
  */
 export function resolvePalette(palette, rules = EMPTY_RULES) {
@@ -150,16 +155,19 @@ export function resolvePalette(palette, rules = EMPTY_RULES) {
   const byHex = new Map(palette.map((c) => [toHex(c), c]));
   let active = palette.filter((c) => !excluded.has(toHex(c)));
   if (!active.length) { excluded.clear(); active = palette; } // jamais de palette vide
-  return palette.map((color) => {
-    let hex = toHex(color);
-    // suit les remplacements (A → B → C), avec garde-fou contre les cycles
+
+  const resolve = (start, depth = 0) => {
+    let hex = start;
+    // suit les remplacements, avec garde-fou contre les cycles
     for (let step = 0; step < palette.length; step++) {
       const next = replace[hex];
       if (!next || next === hex || !byHex.has(next)) break;
       hex = next;
     }
-    if (!excluded.has(hex)) return byHex.get(hex);
+    if (!excluded.has(hex)) return hex;
     const [r, g, b] = byHex.get(hex);
-    return active[nearestIndex(active, r, g, b)];
-  });
+    const near = toHex(active[nearestIndex(active, r, g, b)]);
+    return depth < 4 ? resolve(near, depth + 1) : near;
+  };
+  return palette.map((color) => byHex.get(resolve(toHex(color))));
 }

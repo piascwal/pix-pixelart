@@ -132,9 +132,36 @@ export function createEditor(store) {
     return true;
   }
 
+  /**
+   * Toutes les cases d'une couleur exacte d'un coup (un seul point d'annulation) :
+   * to = [r, g, b] pour les recolorer, null pour les rendre transparentes.
+   * @returns {number} nombre de cases modifiées
+   */
+  function replaceColor(from, to) {
+    const { edited } = store.get();
+    if (!edited) return 0;
+    if (to && to[0] === from[0] && to[1] === from[1] && to[2] === from[2]) return 0;
+    const d = edited.data;
+    const hits = [];
+    for (let i = 0; i < d.length; i += 4) {
+      if (d[i + 3] && d[i] === from[0] && d[i + 1] === from[1] && d[i + 2] === from[2]) hits.push(i);
+    }
+    if (!hits.length) return 0;
+    undo.push(new Uint8ClampedArray(d));
+    if (undo.length > MAX_HISTORY) undo.shift();
+    redo = [];
+    for (const i of hits) {
+      if (to) { d[i] = to[0]; d[i + 1] = to[1]; d[i + 2] = to[2]; d[i + 3] = 255; } else d[i + 3] = 0;
+    }
+    bump();
+    publishHistory();
+    return hits.length;
+  }
+
   return {
     onEditPointer,
     setPixel,
+    replaceColor,
     undo: () => swap(undo, redo),
     redo: () => swap(redo, undo),
   };

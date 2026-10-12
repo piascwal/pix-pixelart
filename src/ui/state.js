@@ -72,6 +72,7 @@ export const store = createStore({
   history: { undo: 0, redo: 0 },
   tool: 'none',        // none | move | inspect | pencil | eraser | picker | crop (none : la page défile comme d'habitude)
   pixelSel: null,      // case sélectionnée avec le pointeur { x, y }, en cases du résultat
+  pixelScope: 'one',   // pointeur : 'one' = cette case, 'all' = toutes les cases de cette couleur
   cropSel: null,       // rectangle de rognage en cours { x, y, w, h }, en pixels de la source
   paletteSel: null,    // couleur du nuancier sélectionnée (#rrggbb)
   paletteReplacing: false, // on attend le clic sur la couleur de remplacement

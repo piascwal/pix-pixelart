@@ -100,3 +100,22 @@ test('cadrage : un petit élément détaché mais réel (balle) est gardé', () 
 test('cadrage : image vide → image entière', () => {
   assert.deepEqual(focusBounds(createImage(5, 4)), { x0: 0, y0: 0, x1: 5, y1: 4 });
 });
+
+test('couleur écartée dont la plus proche est remplacée : le remplacement s\'applique aussi (bug signalé)', () => {
+  const A = [66, 2, 55];      // violet sombre, remplacé par noir
+  const A2 = [70, 8, 62];     // violet voisin, écarté : ses pixels vont vers A…
+  const BLACK = [7, 3, 6];
+  const OTHER = [240, 200, 160];
+  const pal = [A, A2, BLACK, OTHER];
+  const t = resolvePalette(pal, { excluded: [toHex(A2)], replace: { [toHex(A)]: toHex(BLACK) } });
+  assert.deepEqual(t[0], BLACK, 'A est remplacée par le noir');
+  assert.deepEqual(t[1], BLACK, '…et A2, écartée, suit : elle ne reste pas violette');
+  for (const c of t) assert.ok(![toHex(A), toHex(A2)].includes(toHex(c)), 'plus aucun violet dans le résultat');
+});
+
+test('chaîne mixte : écartée → plus proche remplacée → cible elle-même remplacée', () => {
+  const [A, A2, B, C] = [[10, 10, 10], [12, 12, 12], [200, 0, 0], [0, 200, 0]];
+  const t = resolvePalette([A, A2, B, C], { excluded: [toHex(A2)], replace: { [toHex(A)]: toHex(B), [toHex(B)]: toHex(C) } });
+  assert.deepEqual(t[1], C);
+  assert.deepEqual(t[0], C);
+});
