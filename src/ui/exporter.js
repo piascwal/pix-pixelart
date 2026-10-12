@@ -1,7 +1,7 @@
 // Export PNG : taille native ou agrandie ×2 / ×4 / ×8 au plus proche voisin,
 // fond transparent ou magenta #ff00ff selon le réglage.
 
-import { upscale, flatten, padToCanvas } from '../core/upscale.js';
+import { upscale, flatten, fitToCanvas, contentSize } from '../core/upscale.js';
 import { usedColors } from '../core/palette.js';
 import { toHex } from '../core/image.js';
 import { watch } from './state.js';
@@ -31,10 +31,15 @@ export function paletteHexes(img) {
   return usedColors(img).map(toHex);
 }
 
-/** Image à exporter : celle du résultat, posée sur une toile carrée si on en a choisi une qui la contient. */
-export function exportBase(edited, canvasSize) {
-  const fits = canvasSize > 0 && edited.width <= canvasSize && edited.height <= canvasSize;
-  return fits ? padToCanvas(edited, canvasSize) : edited;
+/**
+ * Image à exporter. Sans toile : l'image telle quelle, agrandie de `factor`.
+ * Avec une toile N × N : le sprite agrandi au maximum dans la toile (facteur entier).
+ * @returns {{ image, scale }}
+ */
+export function exportBase(edited, canvasSize, factor = 1) {
+  if (!(canvasSize > 0)) return { image: upscale(edited, factor), scale: factor };
+  const { image, scale } = fitToCanvas(edited, canvasSize);
+  return { image, scale };
 }
 
 export function createExporter(root, store) {
@@ -50,11 +55,12 @@ export function createExporter(root, store) {
     btn.addEventListener('click', async () => {
       const { edited, settings, sourceName } = store.get();
       if (!edited?.width) return;
-      const factor = Number(btn.dataset.export);
-      let img = upscale(exportBase(edited, settings.canvasSize), factor);
+      const factor = Number(btn.dataset.export) || 1;
+      let { image: img } = exportBase(edited, settings.canvasSize, factor);
       if (settings.output === 'magenta') img = flatten(img);
       const base = (sourceName || 'image').replace(/\.[a-z0-9]+$/i, '');
-      download(await toPngBlob(img), `${base}-depix${factor > 1 ? '-x' + factor : ''}.png`);
+      const suffix = settings.canvasSize > 0 ? `-${settings.canvasSize}` : factor > 1 ? `-x${factor}` : '';
+      download(await toPngBlob(img), `${base}-depix${suffix}.png`);
     });
   }
 
@@ -77,28 +83,32 @@ export function createExporter(root, store) {
   function render() {
     const { edited, settings } = store.get();
     const ok = Boolean(edited?.width);
+    const content = ok ? contentSize(edited) : 0;
     if (ok) {
-      // une toile plus petite que l'image ne peut pas la contenir
-      const longest = Math.max(edited.width, edited.height);
-      for (const opt of canvasSelect.options) opt.disabled = Number(opt.value) > 0 && Number(opt.value) < longest;
-      if (settings.canvasSize > 0 && settings.canvasSize < longest) {
+      // une toile plus petite que le sprite ne peut pas le contenir
+      for (const opt of canvasSelect.options) opt.disabled = Number(opt.value) > 0 && Number(opt.value) < content;
+      if (settings.canvasSize > 0 && settings.canvasSize < content) {
         store.set((s) => ({ settings: { ...s.settings, canvasSize: 0 } }));
         return;
       }
     }
     canvasSelect.value = String(settings.canvasSize);
     canvasSelect.disabled = !ok;
-    const out = ok ? exportBase(edited, settings.canvasSize) : null;
+    const onCanvas = settings.canvasSize > 0;
     for (const btn of paletteButtons) btn.disabled = !ok;
     paletteInfo.textContent = ok ? `${paletteHexes(edited).length} couleurs dans l'image` : '';
     for (const btn of buttons) {
+      const fit = btn.dataset.export === 'fit';
+      btn.hidden = fit !== onCanvas;
       btn.disabled = !ok;
-      const f = Number(btn.dataset.export);
-      btn.title = ok ? `${out.width * f} × ${out.height * f} px` : '';
+      const f = Number(btn.dataset.export) || 1;
+      btn.title = ok && !fit ? `${edited.width * f} × ${edited.height * f} px` : '';
     }
-    info.textContent = !ok ? ''
-      : out === edited ? `Taille native : ${edited.width} × ${edited.height} px`
-        : `Toile ${out.width} × ${out.height} px (image ${edited.width} × ${edited.height} px, centrée)`;
+    if (!ok) info.textContent = '';
+    else if (onCanvas) {
+      const scale = Math.floor(settings.canvasSize / content);
+      info.textContent = `Toile ${settings.canvasSize} × ${settings.canvasSize} px · sprite agrandi ×${scale}`;
+    } else info.textContent = `Taille native : ${edited.width} × ${edited.height} px`;
   }
   watch(store, ['edited', 'settings'], render);
   render();

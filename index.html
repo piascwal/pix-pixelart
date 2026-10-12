@@ -209,19 +209,22 @@
       <h2>Exporter en PNG</h2>
       <p class="hint" data-info="export"></p>
       <div class="field">
-        <label for="canvas-size">Toile carrée (facultatif)</label>
+        <label for="canvas-size">Taille de l'export</label>
         <select id="canvas-size">
-          <option value="0">Taille de l'image</option>
+          <option value="0">Taille de l'image (×1 à ×8)</option>
           <option value="16">16 × 16</option>
           <option value="32">32 × 32</option>
           <option value="64">64 × 64</option>
           <option value="128">128 × 128</option>
           <option value="256">256 × 256</option>
           <option value="512">512 × 512</option>
+          <option value="1024">1024 × 1024</option>
+          <option value="2048">2048 × 2048</option>
         </select>
-        <p class="hint">Pose l'image au centre d'une toile transparente de cette taille, sans la déformer : pour sortir du 64 × 64 ou du 128 × 128.</p>
+        <p class="hint">Toile carrée : le personnage est agrandi au maximum sans être coupé, pixels toujours nets.</p>
       </div>
       <div class="export-buttons">
+        <button type="button" class="btn btn-primary" data-export="fit" hidden><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#download"/></svg> Télécharger le PNG</button>
         <button type="button" class="btn btn-primary" data-export="1">Natif</button>
         <button type="button" class="btn" data-export="2">×2</button>
         <button type="button" class="btn" data-export="4">×4</button>

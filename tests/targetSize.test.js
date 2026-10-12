@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { targetGrid, gridLines } from '../src/core/gridDetect.js';
-import { padToCanvas } from '../src/core/upscale.js';
+import { padToCanvas, fitToCanvas } from '../src/core/upscale.js';
 import { convert } from '../src/core/pipeline.js';
 import { createImage } from '../src/core/image.js';
 import { rng, px } from './helpers/synthetic.js';
@@ -93,4 +93,18 @@ test('toile carrée : image centrée, sans perte', () => {
 
 test('toile trop petite : erreur claire', () => {
   assert.throws(() => padToCanvas(createImage(10, 4), 8), RangeError);
+});
+
+test('toile carrée maximale : marges rognées, facteur entier le plus grand, centré', () => {
+  const img = createImage(20, 20);                       // sprite 3 × 2 perdu dans des marges
+  for (let y = 5; y < 7; y++) for (let x = 8; x < 11; x++) img.data.set([9, 8, 7, 255], (y * 20 + x) * 4);
+  const { image, scale, content } = fitToCanvas(img, 10);
+  assert.equal(scale, 3);                                // floor(10 / 3)
+  assert.deepEqual(content, { w: 3, h: 2 });
+  assert.deepEqual([image.width, image.height], [10, 10]);
+  let filled = 0, x0 = 10, x1 = -1;
+  for (let i = 0; i < 100; i++) if (image.data[i * 4 + 3]) { filled++; x0 = Math.min(x0, i % 10); x1 = Math.max(x1, i % 10); }
+  assert.equal(filled, 9 * 6);                           // 3 × 2 cases de 3 × 3
+  assert.deepEqual([x0, x1], [0, 8]);                    // 9 px de large dans 10 : marge d'un pixel
+  assert.throws(() => fitToCanvas(img, 2), RangeError);
 });
