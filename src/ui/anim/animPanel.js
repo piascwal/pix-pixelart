@@ -14,7 +14,7 @@ import { icon } from '../icons.js';
 import { toast } from '../clipboard.js';
 import {
   anim, commit, undoLast, redoLast, addPart, removePart, updatePart, movePart, setPose,
-  addFrame, removeFrame, clearEdits, frameImage, partColor, interpolateFrames, generateWalk, completeCut,
+  addFrame, removeFrame, clearEdits, frameImage, partColor, interpolateFrames, generateWalk, completeCut, completePose,
 } from './animStore.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -174,10 +174,14 @@ export function createAnimPanel(root, mainStore) {
   $('#anim-onion', root).addEventListener('click', () => anim.set((s) => ({ onion: !s.onion })));
   for (const b of root.querySelectorAll('[data-walk]')) b.addEventListener('click', () => anim.set({ walkStyle: b.dataset.walk }));
   $('#anim-walk', root).addEventListener('click', () => {
-    if (!generateWalk(anim.get().walkStyle)) toast('Aucun membre trouvé : découpez d\u2019abord les bras et les jambes.');
+    if (!generateWalk(anim.get().walkStyle)) toast('Aucun bras ni jambe reconnu : vérifiez que chaque membre est une pièce avec son pivot (hors tête).');
   });
   $('#anim-complete', root).addEventListener('click', () => {
-    if (!completeCut()) toast('Rien à compléter : peignez quelques pixels sur chaque pièce et placez ses pivots.');
+    if (!completeCut()) toast('Rien à ajouter : les pièces touchent déjà tous leurs pixels reliés (ou aucun pivot n\u2019est placé).');
+  });
+  $('#anim-fill', root).addEventListener('click', () => {
+    const n = completePose();
+    toast(n ? `${n} pixel${n > 1 ? 's' : ''} ajouté${n > 1 ? 's' : ''}` : 'Aucun vide à combler sur cette image.');
   });
   $('#anim-play', root).addEventListener('click', () => anim.set((s) => ({ playing: !s.playing })));
   const fps = $('#anim-fps', root);

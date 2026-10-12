@@ -5,7 +5,8 @@
 //   Découper : le sprite, chaque pièce teintée de sa couleur, pivots et squelette ;
 //              pinceau (attribuer à la pièce choisie), gomme (rendre au corps), pivot.
 //   Poser    : attraper un membre et glisser le fait tourner autour de son pivot ;
-//              glisser sur le corps ou dans le vide déplace la vue (le décalage du
+//              maintien long sur un membre (sans bouger) puis glisser : il se déplace
+//              en X / Y ; relâcher revient à la rotation. Glisser sur le corps ou dans le vide déplace la vue (le décalage du
 //              corps se règle dans le panneau).
 //   Retoucher: crayon, gomme, pipette sur l'image courante.
 
@@ -17,6 +18,8 @@ import {
 
 const MIN_SCALE = 0.5;
 const MAX_SCALE = 64;
+const HOLD_MS = 450;   // maintien long : déplacer le membre en X / Y
+const HOLD_SLOP = 6;   // px d'écran tolérés pendant le maintien
 
 export function createAnimView(canvas, container) {
   const ctx = canvas.getContext('2d');
@@ -28,6 +31,7 @@ export function createAnimView(canvas, container) {
   let playIndex = 0;
   let timer = 0;
   let spaceDown = false;
+  let holdTimer = 0;
 
   /** Image affichée (pose + retouches) ; même taille pour toutes les images, marge comprise. */
   function current() {
@@ -84,6 +88,7 @@ export function createAnimView(canvas, container) {
     const key = `${image.width}x${image.height}:${s.base.width}x${s.base.height}`;
     if (fittedFor !== key) { fittedFor = key; fit(); return; }
 
+    canvas.dataset.view = `${cam.cx},${cam.cy},${cam.scale}`;
     const dpr = canvas.width / W;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, W, H);
@@ -215,6 +220,8 @@ export function createAnimView(canvas, container) {
     // deux doigts : zoom et déplacement de la vue, le geste en cours s'arrête
     if (pointers.size === 2) {
       drag = null;
+      clearTimeout(holdTimer);
+      container.classList.remove('is-moving');
       const [a, b] = [...pointers.values()];
       pinch = { dist: Math.hypot(a.x - b.x, a.y - b.y), mid: [(a.x + b.x) / 2, (a.y + b.y) / 2] };
       return;
@@ -254,7 +261,21 @@ export function createAnimView(canvas, container) {
       const world = worldTransforms(s.rig, frame.pose, { x: m, y: m });
       const part = s.rig.parts.find((q) => q.id === hit);
       const pivot = apply(world.get(hit).m, part.pivot);
-      drag = { kind: 'rotate', id: hit, pivot, a0: Math.atan2(p.fy - pivot.y, p.fx - pivot.x), angle: pose.angle || 0 };
+      drag = {
+        kind: 'rotate', id: hit, pivot, a0: Math.atan2(p.fy - pivot.y, p.fx - pivot.x), angle: pose.angle || 0,
+        start: { x: e.clientX, y: e.clientY }, pose0: { angle: pose.angle || 0, dx: pose.dx || 0, dy: pose.dy || 0 },
+        parentAngle: world.get(hit).angle - (pose.angle || 0), from: { x: p.fx, y: p.fy },
+      };
+      // maintien long sans bouger : le membre se déplace en X / Y (relâcher revient à la rotation)
+      const d = drag;
+      clearTimeout(holdTimer);
+      holdTimer = setTimeout(() => {
+        if (drag !== d || d.kind !== 'rotate') return;
+        setPose(d.id, { angle: d.pose0.angle });
+        d.kind = 'move';
+        container.classList.add('is-moving');
+        navigator.vibrate?.(20);
+      }, HOLD_MS);
     } else if (s.step === 'touch') {
       const { image } = current();
       if (p.x < 0 || p.y < 0 || p.x >= image.width || p.y >= image.height) return;
@@ -298,12 +319,26 @@ export function createAnimView(canvas, container) {
       drag.last = { x: e.clientX, y: e.clientY };
       return;
     }
+    if (drag.kind === 'rotate' && Math.hypot(e.clientX - drag.start.x, e.clientY - drag.start.y) > HOLD_SLOP) {
+      clearTimeout(holdTimer);   // le doigt a bougé avant la fin du maintien : c'est une rotation
+    }
     const p = pixelAt(e);
+    if (drag.kind === 'move') {
+      const c = Math.cos((drag.parentAngle * Math.PI) / 180), sn = Math.sin((drag.parentAngle * Math.PI) / 180);
+      const wx = p.fx - drag.from.x, wy = p.fy - drag.from.y;
+      setPose(drag.id, {
+        dx: Math.round(drag.pose0.dx + c * wx + sn * wy),
+        dy: Math.round(drag.pose0.dy - sn * wx + c * wy),
+      });
+      return;
+    }
     if (drag.kind === 'paint') {
       const sp = { x: p.x - m, y: p.y - m };
       line(drag.last, sp, (x, y) => paintAt(x, y, drag.id));
       drag.last = sp;
     } else if (drag.kind === 'rotate') {
+      if (!drag.rotating && Math.hypot(e.clientX - drag.start.x, e.clientY - drag.start.y) <= HOLD_SLOP) return;
+      drag.rotating = true;
       const a = Math.atan2(p.fy - drag.pivot.y, p.fx - drag.pivot.x);
       const angle = Math.round(drag.angle + ((a - drag.a0) * 180) / Math.PI);
       setPose(drag.id, { angle: ((angle + 540) % 360) - 180 });
@@ -315,7 +350,11 @@ export function createAnimView(canvas, container) {
   const release = (e) => {
     pointers.delete(e.pointerId);
     if (pointers.size < 2) pinch = null;
-    if (pointers.size === 0) drag = null;
+    if (pointers.size === 0) {
+      drag = null;
+      clearTimeout(holdTimer);
+      container.classList.remove('is-moving');
+    }
   };
   canvas.addEventListener('pointerup', release);
   canvas.addEventListener('pointercancel', release);

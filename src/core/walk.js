@@ -76,7 +76,9 @@ export function detectLimbs(base, rig) {
     const w = st.x1 - st.x0 + 1, h = st.y1 - st.y0 + 1;
     const side = part.pivot.x < centerX ? -1 : 1;
     const down = part.pivot.y > midY;
-    if (!down && chain.length === 1 && Math.max(w, h) / Math.min(w, h) < 1.6) continue;   // tête
+    // tête : pièce courte, au centre du corps, en haut
+    const bodyW = body ? body.x1 - body.x0 + 1 : bounds.x1 - bounds.x0 + 1;
+    if (!down && chain.length === 1 && Math.max(w, h) / Math.min(w, h) < 1.6 && Math.abs(cx - centerX) < 0.25 * bodyW) continue;
     if (len < 1) continue;
     const theta = Math.atan2(dy, dx);
     const baseAngle = ((Math.PI / 2 - theta) * 180) / Math.PI;     // pour pendre vers le bas

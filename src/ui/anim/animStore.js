@@ -3,7 +3,7 @@
 // l'étape et l'outil en cours, l'historique annuler / rétablir.
 
 import { createStore } from '../state.js';
-import { createRig, composeFrame, applyEdits, completeParts, BODY } from '../../core/rig.js';
+import { createRig, composeFrame, applyEdits, completeParts, fillPoseGaps, BODY } from '../../core/rig.js';
 import { inBetween } from '../../core/poses.js';
 import { detectLimbs, walkPoses } from '../../core/walk.js';
 import { cloneImage } from '../../core/image.js';
@@ -317,4 +317,21 @@ export function completeCut() {
   publish();
   bump();
   return n;
+}
+
+/** Comble les vides de la pose courante (ajoutés aux retouches de l'image). Renvoie le nombre de pixels. */
+export function completePose() {
+  const { base, rig, frames, current } = anim.get();
+  const frame = frames[current];
+  const fill = fillPoseGaps(base, rig, frame.pose, frameImage(frame).image);
+  if (!fill.size) return 0;
+  commit();
+  anim.set((s) => {
+    const list = [...s.frames];
+    const edits = new Map(list[s.current].edits);
+    for (const [i, c] of fill) edits.set(i, c);
+    list[s.current] = { ...list[s.current], edits };
+    return { frames: list };
+  });
+  return fill.size;
 }

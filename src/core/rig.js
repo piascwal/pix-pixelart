@@ -199,6 +199,72 @@ export function composeFrame(base, rig, pose, { jointRadius = 1.6 } = {}) {
   return { image: out, owner, margin: m };
 }
 
+/**
+ * Comble les vides qu'ouvre le mouvement des membres : autour de l'articulation de
+ * chaque pièce qui a bougé, les pixels vides situés dans la silhouette de repos
+ * prennent la couleur de leurs voisins, de proche en proche.
+ * @param composed résultat de composeFrame pour cette pose (retouches comprises)
+ * @returns {Map<number, number[]>} indice de pixel → [r, g, b, 255], à ajouter aux retouches
+ */
+export function fillPoseGaps(base, rig, pose, composed) {
+  const m = marginFor(rig);
+  const { width: W, height: H } = composed;
+  const world = worldTransforms(rig, pose, { x: m, y: m });
+  const src = (x, y) => {
+    const bx = x - m, by = y - m;
+    return bx >= 0 && by >= 0 && bx < base.width && by < base.height && base.data[(by * base.width + bx) * 4 + 3] > 0;
+  };
+  const data = new Uint8ClampedArray(composed.data);
+  const todo = new Set();
+  for (const part of rig.parts) {
+    if (part.id === BODY || isRest(pose[part.id])) continue;
+    const pp = partPose(pose, part.id);
+    const dest = apply(world.get(part.id).m, part.pivot);
+    // épaisseur de la pièce → rayon du vide possible autour de l'articulation
+    let x0 = Infinity, x1 = -1, y0 = Infinity, y1 = -1;
+    for (let i = 0; i < rig.labels.length; i++) {
+      if (rig.labels[i] !== part.id || !base.data[i * 4 + 3]) continue;
+      const x = i % base.width, y = (i / base.width) | 0;
+      if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+    }
+    if (x1 < 0) continue;
+    const r = Math.min(14, Math.max(2, 0.7 * Math.min(x1 - x0 + 1, y1 - y0 + 1)) + Math.hypot(pp.dx || 0, pp.dy || 0));
+    for (let y = Math.floor(dest.y - r); y <= Math.ceil(dest.y + r); y++) {
+      for (let x = Math.floor(dest.x - r); x <= Math.ceil(dest.x + r); x++) {
+        if (x < 0 || y < 0 || x >= W || y >= H || data[(y * W + x) * 4 + 3]) continue;
+        if ((x + 0.5 - dest.x) ** 2 + (y + 0.5 - dest.y) ** 2 > r * r || !src(x, y)) continue;
+        todo.add(y * W + x);
+      }
+    }
+  }
+  const out = new Map();
+  while (todo.size) {
+    const round = [];
+    for (const i of todo) {
+      const x = i % W, y = (i / W) | 0;
+      const votes = new Map();
+      for (const [dx, dy, w] of [[1, 0, 2], [-1, 0, 2], [0, 1, 2], [0, -1, 2], [1, 1, 1], [-1, 1, 1], [1, -1, 1], [-1, -1, 1]]) {
+        const nx = x + dx, ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+        const o = (ny * W + nx) * 4;
+        if (!data[o + 3]) continue;
+        const k = `${data[o]},${data[o + 1]},${data[o + 2]}`;
+        votes.set(k, (votes.get(k) || 0) + w);
+      }
+      let best = null, n = 0;
+      for (const [k, v] of votes) if (v > n) { n = v; best = k; }
+      if (best) round.push([i, best.split(',').map(Number)]);
+    }
+    if (!round.length) break;
+    for (const [i, c] of round) {
+      data.set([...c, 255], i * 4);
+      out.set(i, [...c, 255]);
+      todo.delete(i);
+    }
+  }
+  return out;
+}
+
 /** Retouches à la main d'une image : Map(indice de pixel → [r, g, b, a]), a = 0 pour effacer. */
 export function applyEdits(img, edits) {
   if (!edits || !edits.size) return img;
