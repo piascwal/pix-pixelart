@@ -1,0 +1,266 @@
+// État du mode Animation, séparé de l'état de conversion : le sprite de départ,
+// son découpage en pièces (rig), les images (une pose + des retouches chacune),
+// l'étape et l'outil en cours, l'historique annuler / rétablir.
+
+import { createStore } from '../state.js';
+import { createRig, composeFrame, applyEdits, BODY } from '../../core/rig.js';
+import { cloneImage } from '../../core/image.js';
+
+const NAMES = ['Bras gauche', 'Avant-bras gauche', 'Bras droit', 'Avant-bras droit', 'Cuisse gauche',
+  'Jambe gauche', 'Cuisse droite', 'Jambe droite', 'Tête', 'Objet'];
+const COLORS = ['#ff4fa3', '#33d1ff', '#ffd400', '#7cff6b', '#ff8a3d', '#b48cff', '#00e0b0', '#ff5f5f',
+  '#5f8bff', '#f0f0f0', '#ffa8d8', '#9effff'];
+const MAX_HISTORY = 80;
+
+export const anim = createStore({
+  active: false,
+  base: null,        // sprite de départ { width, height, data }
+  rig: null,         // découpage (voir core/rig.js) ; parts[i].pivotSet : pivot placé à la main
+  frames: [],        // [{ pose, edits: Map }]
+  current: 0,
+  selected: BODY,    // pièce sélectionnée
+  step: 'cut',       // cut (découper) | pose (poser) | touch (retoucher)
+  tool: 'paint',     // cut : paint | unpaint | pivot ; touch : pencil | eraser | picker
+  brush: 1,
+  color: null,       // couleur du crayon de retouche
+  playing: false,
+  fps: 8,
+  zoom: 0,           // 0 : ajusté à la place disponible
+  version: 0,        // incrémenté à chaque changement du découpage
+  history: { undo: 0, redo: 0 },
+});
+
+let undo = [];
+let redo = [];
+
+const bump = () => anim.set((s) => ({ version: s.version + 1 }));
+const publish = () => anim.set({ history: { undo: undo.length, redo: redo.length } });
+
+function snapshot() {
+  const s = anim.get();
+  return {
+    labels: new Uint8Array(s.rig.labels),
+    parts: s.rig.parts.map((p) => ({ ...p, pivot: { ...p.pivot } })),
+    order: [...s.rig.order],
+    frames: s.frames.map((f) => ({ pose: structuredClone(f.pose), edits: new Map(f.edits) })),
+    current: s.current,
+    selected: s.selected,
+  };
+}
+function restore(snap) {
+  const { rig } = anim.get();
+  rig.labels.set(snap.labels);
+  rig.parts = snap.parts;
+  rig.order = snap.order;
+  anim.set({ frames: snap.frames, current: Math.min(snap.current, snap.frames.length - 1), selected: snap.selected });
+  bump();
+}
+
+/** À appeler avant chaque modification annulable. */
+export function commit() {
+  undo.push(snapshot());
+  if (undo.length > MAX_HISTORY) undo.shift();
+  redo = [];
+  publish();
+}
+export function undoLast() { if (!undo.length) return; redo.push(snapshot()); restore(undo.pop()); publish(); }
+export function redoLast() { if (!redo.length) return; undo.push(snapshot()); restore(redo.pop()); publish(); }
+
+/** Entre dans le mode : garde le découpage existant si le sprite a la même taille. */
+export function start(image) {
+  const s = anim.get();
+  const base = cloneImage(image);
+  if (s.rig && s.rig.width === base.width && s.rig.height === base.height) {
+    anim.set({ base, active: true });
+  } else {
+    undo = []; redo = [];
+    anim.set({
+      base, active: true, rig: createRig(base.width, base.height),
+      frames: [{ pose: {}, edits: new Map() }], current: 0, selected: BODY, step: 'cut', tool: 'paint',
+    });
+    anim.get().rig.parts[0].pivotSet = true;
+    publish();
+  }
+  bump();
+}
+export const stop = () => anim.set({ active: false, playing: false });
+
+/* ------------------------------------------------------------------ pièces */
+
+export const partColor = (id) => (id === BODY ? '#9a93b5' : COLORS[(id - 1) % COLORS.length]);
+
+export function addPart() {
+  const { rig } = anim.get();
+  if (rig.parts.length >= 250) return;
+  commit();
+  const id = Math.max(...rig.parts.map((p) => p.id)) + 1;
+  const name = NAMES[rig.parts.length - 1] || `Pièce ${rig.parts.length}`;
+  rig.parts.push({ id, name, pivot: { x: rig.width / 2, y: rig.height / 2 }, parent: BODY, pivotSet: false });
+  rig.order.push(id);
+  anim.set({ selected: id, step: 'cut', tool: 'paint' });
+  bump();
+}
+
+export function removePart(id) {
+  const { rig, frames } = anim.get();
+  if (id === BODY) return;
+  commit();
+  const part = rig.parts.find((p) => p.id === id);
+  for (let i = 0; i < rig.labels.length; i++) if (rig.labels[i] === id) rig.labels[i] = BODY;
+  for (const p of rig.parts) if (p.parent === id) p.parent = part.parent ?? BODY;
+  rig.parts = rig.parts.filter((p) => p.id !== id);
+  rig.order = rig.order.filter((x) => x !== id);
+  anim.set({
+    selected: BODY,
+    frames: frames.map((f) => { const pose = { ...f.pose }; delete pose[id]; return { ...f, pose }; }),
+  });
+  bump();
+}
+
+export function updatePart(id, patch, { undoable = true } = {}) {
+  if (undoable) commit();
+  const part = anim.get().rig.parts.find((p) => p.id === id);
+  Object.assign(part, patch);
+  bump();
+}
+
+/** Avance (+1) ou recule (-1) la pièce dans l'ordre de dessin. */
+export function movePart(id, dir) {
+  const { rig } = anim.get();
+  const i = rig.order.indexOf(id);
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= rig.order.length) return;
+  commit();
+  [rig.order[i], rig.order[j]] = [rig.order[j], rig.order[i]];
+  bump();
+}
+
+/** Peint (ou rend au corps) les pixels opaques d'un carré de côté `brush` autour de (x, y). */
+export function paintAt(x, y, id) {
+  const { rig, base, brush } = anim.get();
+  const r0 = -Math.floor((brush - 1) / 2);
+  let changed = false;
+  for (let dy = r0; dy < r0 + brush; dy++) {
+    for (let dx = r0; dx < r0 + brush; dx++) {
+      const px = x + dx, py = y + dy;
+      if (px < 0 || py < 0 || px >= rig.width || py >= rig.height) continue;
+      const i = py * rig.width + px;
+      if (!base.data[i * 4 + 3] || rig.labels[i] === id) continue;
+      rig.labels[i] = id;
+      changed = true;
+    }
+  }
+  if (changed) bump();
+}
+
+/** Place le pivot ; la pièce se rattache à celle qu'elle touche à cet endroit. */
+export function placePivot(id, x, y) {
+  const { rig } = anim.get();
+  commit();
+  const part = rig.parts.find((p) => p.id === id);
+  part.pivot = { x: x + 0.5, y: y + 0.5 };
+  part.pivotSet = true;
+  if (id !== BODY) {
+    const votes = new Map();
+    for (let dy = -2; dy <= 2; dy++) {
+      for (let dx = -2; dx <= 2; dx++) {
+        const px = x + dx, py = y + dy;
+        if (px < 0 || py < 0 || px >= rig.width || py >= rig.height) continue;
+        const l = rig.labels[py * rig.width + px];
+        if (l === id || !anim.get().base.data[(py * rig.width + px) * 4 + 3]) continue;
+        votes.set(l, (votes.get(l) || 0) + 1);
+      }
+    }
+    let best = null, n = 0;
+    for (const [l, v] of votes) if (v > n) { n = v; best = l; }
+    if (best !== null) part.parent = best;
+  }
+  bump();
+}
+
+/** Pivot provisoire au centre de la pièce tant qu'il n'a pas été placé. */
+function ensurePivots() {
+  const { rig } = anim.get();
+  for (const p of rig.parts) {
+    if (p.pivotSet) continue;
+    let sx = 0, sy = 0, n = 0;
+    for (let i = 0; i < rig.labels.length; i++) {
+      if (rig.labels[i] !== p.id) continue;
+      sx += i % rig.width; sy += Math.floor(i / rig.width); n++;
+    }
+    if (n) p.pivot = { x: Math.round(sx / n) + 0.5, y: Math.round(sy / n) + 0.5 };
+  }
+}
+
+/* ------------------------------------------------------------------ images */
+
+export function setPose(id, patch) {
+  anim.set((s) => {
+    const frames = [...s.frames];
+    const f = frames[s.current];
+    const prev = f.pose[id] || { angle: 0, dx: 0, dy: 0 };
+    frames[s.current] = { ...f, pose: { ...f.pose, [id]: { ...prev, ...patch } } };
+    return { frames };
+  });
+}
+
+export function addFrame() {
+  commit();
+  anim.set((s) => {
+    const frames = [...s.frames];
+    frames.splice(s.current + 1, 0, { pose: structuredClone(s.frames[s.current].pose), edits: new Map() });
+    return { frames, current: s.current + 1 };
+  });
+}
+export function removeFrame() {
+  const s = anim.get();
+  if (s.frames.length <= 1) return;
+  commit();
+  const frames = s.frames.filter((_, i) => i !== s.current);
+  anim.set({ frames, current: Math.min(s.current, frames.length - 1) });
+}
+export function moveFrame(dir) {
+  const s = anim.get();
+  const j = s.current + dir;
+  if (j < 0 || j >= s.frames.length) return;
+  commit();
+  const frames = [...s.frames];
+  [frames[s.current], frames[j]] = [frames[j], frames[s.current]];
+  anim.set({ frames, current: j });
+}
+
+/** Retouche d'un pixel de l'image courante (rgba, a = 0 pour effacer). */
+export function setEdit(index, rgba) {
+  anim.set((s) => {
+    const frames = [...s.frames];
+    const f = frames[s.current];
+    const edits = new Map(f.edits);
+    edits.set(index, rgba);
+    frames[s.current] = { ...f, edits };
+    return { frames };
+  });
+}
+export function clearEdits() {
+  commit();
+  anim.set((s) => {
+    const frames = [...s.frames];
+    frames[s.current] = { ...frames[s.current], edits: new Map() };
+    return { frames };
+  });
+}
+
+/* ---------------------------------------------------------- images composées */
+
+const cache = new WeakMap();
+
+/** Image d'une image de l'animation (pose + retouches), mise en cache. */
+export function frameImage(frame) {
+  const s = anim.get();
+  const hit = cache.get(frame);
+  if (hit && hit.version === s.version && hit.base === s.base) return hit.result;
+  ensurePivots();
+  const composed = composeFrame(s.base, s.rig, frame.pose);
+  const result = { ...composed, image: applyEdits(composed.image, frame.edits) };
+  cache.set(frame, { version: s.version, base: s.base, result });
+  return result;
+}

@@ -30,6 +30,18 @@ Raccourcis : `M` déplacer, `B` crayon, `E` gomme, `I` pipette, `C` rogner, `+` 
 
 > Changer un réglage relance la conversion et efface les retouches : réglez d'abord, retouchez ensuite.
 
+## Animation (étape 1)
+
+Bouton **Animer** (barre d'outils, une fois l'image convertie) : un mode à part, qui travaille sur une copie du résultat retouché ; « Retour » ramène à la conversion, intacte, et le découpage est gardé si on revient.
+
+1. **Découper** : « Ajouter une pièce », puis peindre ses pixels au pinceau (taille 1 à 3) ; la gomme les rend au corps. L'outil **pivot** place l'articulation (épaule, coude, hanche, genou…) : la pièce se rattache toute seule à celle qu'elle touche à cet endroit (l'avant-bras au bras), modifiable dans la liste. La liste règle aussi l'ordre devant / derrière.
+2. **Poser** : attraper une pièce et glisser la fait tourner autour de son pivot, et ses enfants suivent ; le corps, lui, se déplace. Réglage précis : rotation en degrés et décalage en pixels.
+3. **Retoucher** : crayon, gomme et pipette sur l'image courante, sans toucher aux autres.
+
+Images : « + » ajoute une image (copie de la pose courante), lecture en boucle, images par seconde réglables. Export : planche de sprites PNG (×1, ×4, ×8, fond transparent ou magenta selon le réglage) et JSON (taille des images, nombre, durées).
+
+Ce que l'automatique fait : rotation façon RotSprite (`src/core/rotsprite.js` : Scale2x ×3, rotation, rééchantillonnage ; pixels nets, aucune couleur nouvelle), disque de couleur sous les articulations qui bougent, et le corps rebouche ce qu'une pièce cachait quand c'est encadré par le corps (`src/core/rig.js`). Ce qu'il ne fait pas : inventer ce qui n'existe pas dans le sprite (dos, profil, main qui se ferme) ; les grandes rotations demandent des retouches.
+
 ## Ce qui est garanti, et ce qui ne l'est pas
 
 (Ce texte est aussi dans l'application, sur la page `cgu.html` « Conditions d'utilisation », liée en bas de la page.)
@@ -77,6 +89,8 @@ src/ui/       state.js     état central + abonnements
               paletteView.js nuancier + fiche d'une couleur (hexa, exclure, remplacer)
               cropper.js   rognage de l'image de travail
               tooltips.js  noms des icônes (appui long / survol)
+              anim/        mode Animation : état (animStore), canevas (animView),
+                           panneau et images (animPanel), entrée / sortie (animMode)
               clipboard.js copie et petit message « copié »
               editor.js    crayon, gomme, pipette, annuler / rétablir
               exporter.js  PNG natif et agrandi, palette en hexa

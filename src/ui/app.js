@@ -14,6 +14,7 @@ import { createInspector } from './inspector.js';
 import { createMiniPreview } from './miniPreview.js';
 import { createExporter } from './exporter.js';
 import { setupTooltips } from './tooltips.js';
+import { setupAnimation } from './anim/animMode.js';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -163,6 +164,7 @@ createControls($('#controls'), store);
 createPaletteView($('#palette'), $('#swatch-detail'), store);
 createExporter($('#export'), store);
 setupTooltips();
+setupAnimation(store);
 
 /* ---------------------------------------------------------- barre d'outils --- */
 
@@ -197,6 +199,7 @@ watch(store, ['tool'], (s) => {
 
 window.addEventListener('keydown', (e) => {
   if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest('input, textarea, select')) return;
+  if (document.body.classList.contains('is-anim')) return;
   const s = store.get();
   const tools = { m: 'move', h: 'move', b: 'pencil', p: 'pencil', e: 'eraser', i: 'picker', c: 'crop' };
   const tool = tools[e.key.toLowerCase()];

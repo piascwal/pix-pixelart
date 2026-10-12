@@ -15,7 +15,7 @@ export function toPngBlob(img) {
   return new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
 }
 
-function download(blob, name) {
+export function download(blob, name) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

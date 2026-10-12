@@ -104,6 +104,7 @@ export function createEditor(store) {
 
   window.addEventListener('keydown', (e) => {
     if (!(e.ctrlKey || e.metaKey) || e.target.closest?.('input, textarea')) return;
+    if (document.body.classList.contains('is-anim')) return;
     const key = e.key.toLowerCase();
     if (key === 'z' && !e.shiftKey) { e.preventDefault(); swap(undo, redo); }
     else if (key === 'y' || (key === 'z' && e.shiftKey)) { e.preventDefault(); swap(redo, undo); }

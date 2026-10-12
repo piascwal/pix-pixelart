@@ -32,6 +32,8 @@
         <span class="sep"></span>
         <button type="button" class="icon-btn" id="undo" data-tip="Annuler (Ctrl+Z)" aria-label="Annuler"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#undo-2"/></svg></button>
         <button type="button" class="icon-btn" id="redo" data-tip="Rétablir (Ctrl+Y)" aria-label="Rétablir"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#redo-2"/></svg></button>
+        <span class="sep"></span>
+        <button type="button" class="icon-btn text" id="anim-enter" data-tip="Animer : découper le personnage et le faire bouger" aria-label="Animer"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#film"/></svg><span class="hide-narrow">Animer</span></button>
       </div>
       <div class="tool-group needs-image">
         <button type="button" class="icon-btn" data-tool="crop" data-tip="Rogner : ne garder qu'une zone de l'original" aria-label="Rogner"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#crop"/></svg></button>
@@ -243,6 +245,94 @@
   <span class="mini-text"><strong>Aperçu en direct</strong><span data-info="mini"></span></span>
   <svg class="icon" aria-hidden="true"><use href="assets/icons.svg#arrow-up"/></svg>
 </button>
+
+<section class="app anim" id="anim" hidden aria-label="Animation">
+  <div class="stage anim-stage">
+    <div class="toolbar" role="toolbar" aria-label="Animation">
+      <div class="tool-group">
+        <button type="button" class="icon-btn text" id="anim-exit" data-tip="Revenir à la conversion" aria-label="Retour"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#arrow-left"/></svg><span class="hide-narrow">Retour</span></button>
+        <span class="sep"></span>
+        <div class="segmented" role="group" aria-label="Étape">
+          <button type="button" data-anim-step="cut">Découper</button>
+          <button type="button" data-anim-step="pose">Poser</button>
+          <button type="button" data-anim-step="touch">Retoucher</button>
+        </div>
+      </div>
+      <div class="tool-group" data-anim-tools="cut">
+        <button type="button" class="icon-btn" data-anim-tool="paint" data-tip="Pinceau : attribuer des pixels à la pièce choisie" aria-label="Pinceau"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#paintbrush"/></svg></button>
+        <button type="button" class="icon-btn" data-anim-tool="unpaint" data-tip="Gomme : rendre des pixels au corps" aria-label="Rendre au corps"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#eraser"/></svg></button>
+        <button type="button" class="icon-btn" data-anim-tool="pivot" data-tip="Pivot : placer l'articulation de la pièce choisie" aria-label="Pivot"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#crosshair"/></svg></button>
+        <div class="segmented" role="group" aria-label="Taille du pinceau">
+          <button type="button" data-anim-brush="1">1</button>
+          <button type="button" data-anim-brush="2">2</button>
+          <button type="button" data-anim-brush="3">3</button>
+        </div>
+      </div>
+      <div class="tool-group" data-anim-tools="touch" hidden>
+        <button type="button" class="icon-btn" data-anim-tool="pencil" data-tip="Crayon" aria-label="Crayon"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#pencil"/></svg><span class="current-color" id="anim-color"></span></button>
+        <button type="button" class="icon-btn" data-anim-tool="eraser" data-tip="Gomme" aria-label="Gomme"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#eraser"/></svg></button>
+        <button type="button" class="icon-btn" data-anim-tool="picker" data-tip="Pipette" aria-label="Pipette"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#pipette"/></svg></button>
+      </div>
+      <div class="tool-group">
+        <button type="button" class="icon-btn" id="anim-undo" data-tip="Annuler (Ctrl+Z)" aria-label="Annuler"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#undo-2"/></svg></button>
+        <button type="button" class="icon-btn" id="anim-redo" data-tip="Rétablir (Ctrl+Y)" aria-label="Rétablir"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#redo-2"/></svg></button>
+        <span class="sep"></span>
+        <button type="button" class="icon-btn" id="anim-zoom-out" data-tip="Dézoomer" aria-label="Dézoomer"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#zoom-out"/></svg></button>
+        <button type="button" class="icon-btn" id="anim-zoom-in" data-tip="Zoomer" aria-label="Zoomer"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#zoom-in"/></svg></button>
+      </div>
+    </div>
+    <div class="anim-view" id="anim-view"><canvas id="anim-canvas"></canvas></div>
+    <div class="anim-frames">
+      <button type="button" class="icon-btn" id="anim-play" data-tip="Lecture / pause" aria-label="Lecture"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#play"/></svg></button>
+      <div class="anim-strip" id="anim-strip"></div>
+      <span class="anim-count muted" id="anim-count"></span>
+      <button type="button" class="icon-btn" id="anim-add-frame" data-tip="Nouvelle image (copie de la pose)" aria-label="Nouvelle image"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#plus"/></svg></button>
+      <button type="button" class="icon-btn" id="anim-del-frame" data-tip="Supprimer l'image" aria-label="Supprimer l'image"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#trash-2"/></svg></button>
+      <label class="anim-fps"><input type="number" id="anim-fps" min="1" max="30" step="1" aria-label="Images par seconde"> img/s</label>
+    </div>
+  </div>
+
+  <aside class="panel" aria-label="Animation">
+    <section class="card" data-anim-card="cut pose">
+      <h2>Pièces</h2>
+      <ul class="part-list" id="anim-part-list"></ul>
+      <button type="button" class="btn btn-small" id="anim-add-part"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#plus"/></svg> Ajouter une pièce</button>
+    </section>
+    <section class="card" data-anim-card="pose" hidden>
+      <h2>Pose</h2>
+      <p class="hint" data-info="anim-part"></p>
+      <div class="field">
+        <label for="anim-angle">Rotation</label>
+        <div class="range-row">
+          <input type="range" min="-180" max="180" step="1" id="anim-angle-range" aria-label="Rotation">
+          <input type="number" id="anim-angle" min="-180" max="180" step="1"><span class="unit">°</span>
+        </div>
+      </div>
+      <div class="field">
+        <span class="label">Décalage</span>
+        <div class="range-row">
+          <label class="unit" for="anim-dx">X</label><input type="number" id="anim-dx" step="1">
+          <label class="unit" for="anim-dy">Y</label><input type="number" id="anim-dy" step="1"><span class="unit">px</span>
+        </div>
+      </div>
+      <button type="button" class="btn btn-small" id="anim-reset-pose"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#rotate-ccw"/></svg> Remettre au repos</button>
+    </section>
+    <section class="card" data-anim-card="touch" hidden>
+      <h2>Retouche</h2>
+      <div class="swatches" id="anim-swatches"></div>
+      <button type="button" class="btn btn-small" id="anim-clear-edits"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#rotate-ccw"/></svg> Effacer les retouches de cette image</button>
+    </section>
+    <section class="card" data-anim-card="cut pose touch">
+      <h2>Exporter l'animation</h2>
+      <div class="export-buttons">
+        <button type="button" class="btn btn-primary" data-anim-export="1">Planche</button>
+        <button type="button" class="btn" data-anim-export="4">×4</button>
+        <button type="button" class="btn" data-anim-export="8">×8</button>
+        <button type="button" class="btn" data-anim-export="json">JSON</button>
+      </div>
+    </section>
+  </aside>
+</section>
 
 <footer class="page-footer">
   <a href="cgu.html">Conditions d'utilisation</a>
