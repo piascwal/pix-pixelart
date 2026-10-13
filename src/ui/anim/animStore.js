@@ -7,6 +7,8 @@ import { createRig, composeFrame, applyEdits, completeParts, fillPoseGaps, infer
 import { inBetween } from '../../core/poses.js';
 import { detectLimbs, walkPoses } from '../../core/walk.js';
 import { cloneImage } from '../../core/image.js';
+import { HUMAN_PARTS, estimateJoints, skinFromSkeleton } from '../../core/skeleton.js';
+import { removeSmallIslands } from '../../core/cleanup.js';
 
 const NAMES = ['Bras gauche', 'Avant-bras gauche', 'Bras droit', 'Avant-bras droit', 'Cuisse gauche',
   'Jambe gauche', 'Cuisse droite', 'Jambe droite', 'Tête', 'Objet'];
@@ -45,6 +47,7 @@ function snapshot() {
   const s = anim.get();
   return {
     labels: new Uint8Array(s.rig.labels),
+    auto: s.rig.auto ? new Uint8Array(s.rig.auto) : null,
     parts: s.rig.parts.map((p) => ({ ...p, pivot: { ...p.pivot } })),
     order: [...s.rig.order],
     frames: s.frames.map((f) => ({ pose: structuredClone(f.pose), edits: new Map(f.edits) })),
@@ -55,6 +58,7 @@ function snapshot() {
 function restore(snap) {
   const { rig } = anim.get();
   rig.labels.set(snap.labels);
+  rig.auto = snap.auto ? new Uint8Array(snap.auto) : null;
   rig.parts = snap.parts;
   rig.order = snap.order;
   anim.set({ frames: snap.frames, current: Math.min(snap.current, snap.frames.length - 1), selected: snap.selected });
@@ -152,6 +156,7 @@ export function paintAt(x, y, id) {
       const i = py * rig.width + px;
       if (!base.data[i * 4 + 3] || rig.labels[i] === id) continue;
       rig.labels[i] = id;
+      if (rig.auto) rig.auto[i] = 0;
       changed = true;
     }
   }
@@ -336,4 +341,91 @@ export function completePose() {
     return { frames: list };
   });
   return fill.size;
+}
+
+/* ------------------------------------------------------------- squelette */
+
+/**
+ * Crée les pièces d'un squelette humain (bras, avant-bras, mains, cuisses, jambes, pieds, tête)
+ * avec leurs articulations posées d'après la silhouette. Les pièces qui existent déjà (même nom)
+ * sont gardées : seul leur pivot est replacé s'il ne l'a pas été à la main.
+ * @returns {number} nombre de pièces créées
+ */
+export function addHumanSkeleton() {
+  const { rig, base } = anim.get();
+  commit();
+  const J = estimateJoints(base);
+  const ids = new Map();
+  let created = 0;
+  for (const spec of HUMAN_PARTS) {
+    let part = rig.parts.find((p) => p.name === spec.name);
+    if (!part) {
+      const id = Math.max(...rig.parts.map((p) => p.id)) + 1;
+      part = { id, name: spec.name, pivot: { ...J[spec.joint] }, parent: BODY, pivotSet: true };
+      rig.parts.push(part);
+      rig.order.push(id);
+      created++;
+    } else if (!part.pivotSet) {
+      part.pivot = { ...J[spec.joint] };
+      part.pivotSet = true;
+    }
+    ids.set(spec.key, part.id);
+  }
+  for (const spec of HUMAN_PARTS) {
+    const part = rig.parts.find((p) => p.id === ids.get(spec.key));
+    part.parent = spec.parent ? ids.get(spec.parent) : BODY;
+  }
+  anim.set({ selected: ids.get('armL'), step: 'cut', tool: 'pivot' });
+  bump();
+  return created;
+}
+
+/** Glisse l'articulation d'une pièce (coordonnées du sprite) ; un seul point d'annulation par geste (commit avant). */
+export function movePivot(id, x, y) {
+  const part = anim.get().rig.parts.find((p) => p.id === id);
+  if (!part) return;
+  part.pivot = { x: Math.floor(x) + 0.5, y: Math.floor(y) + 0.5 };
+  part.pivotSet = true;
+  bump();
+}
+
+/** Découpage automatique d'après les articulations. Les pixels peints à la main ne bougent pas. */
+export function autoSkin() {
+  const { rig } = anim.get();
+  if (!rig.auto) rig.auto = new Uint8Array(rig.labels.length);
+  const before = snapshot();
+  const n = skinFromSkeleton(anim.get().base, rig, rig.auto);
+  undo.push(before);
+  if (undo.length > MAX_HISTORY) undo.shift();
+  redo = [];
+  publish();
+  bump();
+  return n;
+}
+
+/** Retire les îlots de moins de `minSize` pixels de l'image courante (ou de toutes). Renvoie le nombre de pixels. */
+export function cleanIslands({ all = false, minSize = 6 } = {}) {
+  const s = anim.get();
+  const targets = all ? s.frames.map((_, i) => i) : [s.current];
+  const found = targets.map((i) => {
+    const img = frameImage(s.frames[i]).image;
+    const out = removeSmallIslands(img, minSize);
+    const gone = [];
+    for (let k = 0; k < img.data.length; k += 4) if (img.data[k + 3] && !out.data[k + 3]) gone.push(k / 4);
+    return { i, gone };
+  });
+  const total = found.reduce((a, f) => a + f.gone.length, 0);
+  if (!total) return 0;
+  commit();
+  anim.set((st) => {
+    const frames = [...st.frames];
+    for (const { i, gone } of found) {
+      if (!gone.length) continue;
+      const edits = new Map(frames[i].edits);
+      for (const k of gone) edits.set(k, [0, 0, 0, 0]);
+      frames[i] = { ...frames[i], edits };
+    }
+    return { frames };
+  });
+  return total;
 }

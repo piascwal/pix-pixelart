@@ -266,6 +266,8 @@
         <button type="button" class="icon-btn" data-anim-tool="paint" data-tip="Pinceau : attribuer des pixels à la pièce choisie" aria-label="Pinceau"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#paintbrush"/></svg></button>
         <button type="button" class="icon-btn" data-anim-tool="unpaint" data-tip="Gomme : rendre des pixels au corps" aria-label="Rendre au corps"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#eraser"/></svg></button>
         <button type="button" class="icon-btn" data-anim-tool="pivot" data-tip="Pivot : placer l'articulation de la pièce choisie" aria-label="Pivot"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#crosshair"/></svg></button>
+        <button type="button" class="icon-btn text" id="anim-skeleton" data-tip="Squelette humain : crée bras, jambes, mains, pieds et tête avec leurs articulations, à ajuster en glissant les points" aria-label="Squelette"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#person-standing"/></svg><span class="hide-narrow">Squelette</span></button>
+        <button type="button" class="icon-btn text" id="anim-skin" data-tip="Découpe auto : attribue les pixels non peints à l'os le plus proche (les pixels peints ne bougent pas)" aria-label="Découpe auto"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#scissors"/></svg><span class="hide-narrow">Découpe auto</span></button>
         <button type="button" class="icon-btn text" id="anim-complete" data-tip="Compléter : étendre chaque pièce aux pixels reliés, jusqu'aux pivots (seuls les pixels du corps changent)" aria-label="Compléter"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#wand-sparkles"/></svg><span class="hide-narrow">Compléter</span></button>
         <div class="segmented" role="group" aria-label="Taille du pinceau">
           <button type="button" data-anim-brush="1">1</button>
@@ -275,11 +277,15 @@
       </div>
       <div class="tool-group" data-anim-tools="pose" hidden>
         <button type="button" class="icon-btn text" id="anim-fill" data-tip="Compléter : boucher les vides ouverts par les membres déplacés, sur cette image" aria-label="Compléter"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#wand-sparkles"/></svg><span>Compléter</span></button>
+        <button type="button" class="icon-btn text" data-islands="one" data-tip="Îlots : supprimer les petits groupes de pixels isolés de cette image" aria-label="Îlots"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#sparkles"/></svg><span class="hide-narrow">Îlots</span></button>
+        <button type="button" class="icon-btn" data-islands="all" data-tip="Îlots : nettoyer toutes les images" aria-label="Îlots de toutes les images"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#film"/></svg></button>
       </div>
       <div class="tool-group" data-anim-tools="touch" hidden>
         <button type="button" class="icon-btn" data-anim-tool="pencil" data-tip="Crayon" aria-label="Crayon"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#pencil"/></svg><span class="current-color" id="anim-color"></span></button>
         <button type="button" class="icon-btn" data-anim-tool="eraser" data-tip="Gomme" aria-label="Gomme"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#eraser"/></svg></button>
         <button type="button" class="icon-btn" data-anim-tool="picker" data-tip="Pipette" aria-label="Pipette"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#pipette"/></svg></button>
+        <button type="button" class="icon-btn text" data-islands="one" data-tip="Îlots : supprimer les petits groupes de pixels isolés de cette image" aria-label="Îlots"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#sparkles"/></svg><span class="hide-narrow">Îlots</span></button>
+        <button type="button" class="icon-btn" data-islands="all" data-tip="Îlots : nettoyer toutes les images" aria-label="Îlots de toutes les images"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#film"/></svg></button>
       </div>
       <div class="tool-group">
         <button type="button" class="icon-btn" id="anim-undo" data-tip="Annuler (Ctrl+Z)" aria-label="Annuler"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#undo-2"/></svg></button>

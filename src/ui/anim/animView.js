@@ -13,7 +13,7 @@
 import { worldTransforms, apply, marginFor, BODY } from '../../core/rig.js';
 import { watch } from '../state.js';
 import {
-  anim, commit, paintAt, placePivot, setPose, setEdit, frameImage, partColor,
+  anim, commit, paintAt, placePivot, movePivot, setPose, setEdit, frameImage, partColor,
 } from './animStore.js';
 
 const MIN_SCALE = 0.5;
@@ -170,6 +170,14 @@ export function createAnimView(canvas, container) {
       if (!p.pivotSet) ctx.setLineDash([3, 3]);
       ctx.stroke();
       ctx.setLineDash([]);
+      if (p.id === s.selected) {
+        ctx.font = '600 12px system-ui, sans-serif';
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = 'rgba(0,0,0,0.75)';
+        ctx.strokeText(p.name, cx + r + 4, cy + 4);
+        ctx.fillStyle = '#fff';
+        ctx.fillText(p.name, cx + r + 4, cy + 4);
+      }
     }
   }
 
@@ -241,6 +249,17 @@ export function createAnimView(canvas, container) {
     const p = pixelAt(e);
     const m = marginFor(s.rig);
 
+    // une articulation placée se déplace en la glissant (outil pivot, ou poser)
+    if ((s.step === 'cut' && s.tool === 'pivot') || s.step === 'pose') {
+      const joint = jointAt(e, s, m);
+      if (joint) {
+        anim.set({ selected: joint.id });
+        commit();
+        drag = { kind: 'joint', id: joint.id };
+        return;
+      }
+    }
+
     if (s.step === 'cut') {
       const sp = { x: p.x - m, y: p.y - m };
       if (s.tool === 'pivot') { placePivot(s.selected, sp.x, sp.y); return; }
@@ -294,6 +313,22 @@ export function createAnimView(canvas, container) {
     }
   });
 
+  /** Articulation sous le pointeur (la plus proche, dans un rayon de saisie). */
+  function jointAt(e, s, m) {
+    const [lx, ly] = local(e);
+    const world = s.step === 'pose' ? worldTransforms(s.rig, s.frames[s.current].pose, { x: m, y: m }) : null;
+    const reach = e.pointerType === 'mouse' ? 8 : 14;
+    let best = null, bd = reach;
+    for (const part of s.rig.parts) {
+      if (part.id === BODY || part.pivotSet === false) continue;
+      const at = world ? apply(world.get(part.id).m, part.pivot) : { x: part.pivot.x + m, y: part.pivot.y + m };
+      const [sx, sy] = toScreen(at.x, at.y);
+      const d = Math.hypot(sx - lx, sy - ly);
+      if (d <= bd) { bd = d; best = part; }
+    }
+    return best;
+  }
+
   function touchAt(p, image) {
     const s = anim.get();
     if (p.x < 0 || p.y < 0 || p.x >= image.width || p.y >= image.height) return;
@@ -327,6 +362,20 @@ export function createAnimView(canvas, container) {
       clearTimeout(holdTimer);   // le doigt a bougé avant la fin du maintien : c'est une rotation
     }
     const p = pixelAt(e);
+    if (drag.kind === 'joint') {
+      const part = s.rig.parts.find((q) => q.id === drag.id);
+      if (s.step === 'cut') { movePivot(drag.id, p.fx - m, p.fy - m); return; }
+      // en pose : on remonte la position dans le repère du sprite au repos
+      const pose = s.frames[s.current].pose;
+      const world = worldTransforms(s.rig, pose, { x: m, y: m });
+      const pm = (world.get(part.parent ?? BODY) || world.get(BODY)).m;
+      const det = pm.a * pm.d - pm.b * pm.c || 1;
+      const qx = p.fx - pm.e, qy = p.fy - pm.f;
+      const rx = (pm.d * qx - pm.c * qy) / det, ry = (-pm.b * qx + pm.a * qy) / det;
+      const pp = pose[drag.id] || {};
+      movePivot(drag.id, rx - (pp.dx || 0) - 0, ry - (pp.dy || 0));
+      return;
+    }
     if (drag.kind === 'move') {
       const c = Math.cos((drag.parentAngle * Math.PI) / 180), sn = Math.sin((drag.parentAngle * Math.PI) / 180);
       const wx = p.fx - drag.from.x, wy = p.fy - drag.from.y;

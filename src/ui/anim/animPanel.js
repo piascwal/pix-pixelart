@@ -14,7 +14,7 @@ import { icon } from '../icons.js';
 import { toast } from '../clipboard.js';
 import {
   anim, commit, undoLast, redoLast, addPart, removePart, updatePart, movePart, setPose,
-  addFrame, removeFrame, clearEdits, frameImage, partColor, interpolateFrames, generateWalk, completeCut, completePose,
+  addFrame, removeFrame, clearEdits, frameImage, partColor, interpolateFrames, generateWalk, completeCut, completePose, addHumanSkeleton, autoSkin, cleanIslands,
 } from './animStore.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -65,6 +65,7 @@ export function createAnimPanel(root, mainStore) {
       chip.style.background = partColor(id);
       li.append(chip);
       if (id === BODY) {
+        li.dataset.tip = 'Zone par défaut : tout ce qui n\u2019est pas attribué à une pièce. On ne la peint pas.';
         li.append(el('span', 'part-name', p.name));
       } else {
         const name = el('input', 'part-name');
@@ -179,6 +180,20 @@ export function createAnimPanel(root, mainStore) {
   $('#anim-complete', root).addEventListener('click', () => {
     if (!completeCut()) toast('Rien à ajouter : les pièces touchent déjà tous leurs pixels reliés (ou aucun pivot n\u2019est placé).');
   });
+  $('#anim-skeleton', root).addEventListener('click', () => {
+    const n = addHumanSkeleton();
+    toast(n ? 'Squelette posé : glissez chaque point sur son articulation' : 'Squelette déjà présent : articulations replacées si besoin');
+  });
+  $('#anim-skin', root).addEventListener('click', () => {
+    const n = autoSkin();
+    toast(n ? `${n} pixel${n > 1 ? 's' : ''} attribué${n > 1 ? 's' : ''} aux pièces` : 'Rien à attribuer : placez d\u2019abord les articulations (Squelette).');
+  });
+  for (const b of root.querySelectorAll('[data-islands]')) {
+    b.addEventListener('click', () => {
+      const n = cleanIslands({ all: b.dataset.islands === 'all' });
+      toast(n ? `${n} pixel${n > 1 ? 's' : ''} isolé${n > 1 ? 's' : ''} supprimé${n > 1 ? 's' : ''}` : 'Aucun îlot à supprimer.');
+    });
+  }
   $('#anim-fill', root).addEventListener('click', () => {
     const n = completePose();
     toast(n ? `${n} pixel${n > 1 ? 's' : ''} ajouté${n > 1 ? 's' : ''}` : 'Aucun vide à combler sur cette image.');

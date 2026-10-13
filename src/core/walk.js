@@ -112,11 +112,18 @@ export function walkPoses(limbs, { style = 'face', frames = 8 } = {}) {
     const cos = (phase) => Math.cos(phi + phase);
 
     for (const leg of limbs.legs) {
-      const [thigh, shin] = leg.parts;
+      const [thigh, shin, foot] = leg.parts;
+      let thighA = 0, shinA = 0;
       if (profile) {
         // avant = -facing (angle positif = sens horaire à l'écran)
-        pose[thigh] = { angle: Math.round(-facing * 26 * sin(leg.phase)), dx: 0, dy: 0 };
-        if (shin !== undefined) pose[shin] = { angle: Math.round(facing * 42 * Math.max(0, cos(leg.phase))), dx: 0, dy: 0 };
+        thighA = Math.round(-facing * 26 * sin(leg.phase));
+        pose[thigh] = { angle: thighA, dx: 0, dy: 0 };
+        if (shin !== undefined) {
+          shinA = Math.round(facing * 42 * Math.max(0, cos(leg.phase)));
+          pose[shin] = { angle: shinA, dx: 0, dy: 0 };
+        }
+        // le pied reste à peu près à plat : il compense la rotation de la jambe
+        if (foot !== undefined) pose[foot] = { angle: Math.round(-0.7 * (thighA + shinA)), dx: 0, dy: 0 };
       } else {
         const lift = Math.round(limbs.height * 0.035 * Math.max(0, sin(leg.phase)));
         if (shin !== undefined) pose[shin] = { angle: 0, dx: 0, dy: -lift };
@@ -124,13 +131,15 @@ export function walkPoses(limbs, { style = 'face', frames = 8 } = {}) {
       }
     }
     for (const arm of limbs.arms) {
-      const [upper, fore] = arm.parts;
+      const [upper, fore, hand] = arm.parts;
       const swing = (profile ? 28 : 6) * sin(arm.phase);
       pose[upper] = { angle: Math.round(arm.base + (profile ? -facing : arm.side) * swing), dx: 0, dy: 0 };
+      let foreA = 0;
       if (fore !== undefined) {
-        const flex = profile ? Math.round(facing * 24 * Math.max(0, sin(arm.phase))) : 0;
-        pose[fore] = { angle: flex, dx: 0, dy: 0 };
+        foreA = profile ? Math.round(facing * 24 * Math.max(0, sin(arm.phase))) : 0;
+        pose[fore] = { angle: foreA, dx: 0, dy: 0 };
       }
+      if (hand !== undefined) pose[hand] = { angle: Math.round(0.3 * foreA), dx: 0, dy: 0 };
     }
     // le corps descend d'un cran quand les jambes sont écartées (appui)
     const contact = Math.abs(Math.sin(phi)) > 0.99;
