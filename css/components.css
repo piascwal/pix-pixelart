@@ -531,3 +531,6 @@ input.part-name { padding: 3px 6px; border: 1px solid var(--line); border-radius
 .batch-item .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.85rem; }
 .batch-item .state { font-size: 0.75rem; color: var(--muted, #8a86a0); }
 .batch-item.is-error .state { color: #ff6b6b; }
+
+#batch { display: grid; gap: 8px; padding-bottom: 12px; margin-bottom: 4px; border-bottom: 1px solid var(--line); }
+#export > #batch + h2 { margin-top: 0; padding-top: 0; border-top: 0; }
