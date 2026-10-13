@@ -175,8 +175,8 @@ const viewer = createViewer(
 createMiniPreview($('#mini-preview'), store, $('.pane-result'), $('#stage'));
 createControls($('#controls'), store);
 createPaletteView($('#palette'), $('#swatch-detail'), store);
-createExporter($('#export'), store);
-createBatch($('#batch'), store, { ask, open: openImage });
+const lot = createBatch($('#batch'), store, { ask, open: openImage });
+createExporter($('#export'), store, { exportLot: lot.exportAll });
 setupTooltips();
 setupAnimation(store);
 

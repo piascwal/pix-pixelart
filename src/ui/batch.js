@@ -2,6 +2,7 @@
 // s'ouvre comme d'habitude (aperçu, réglages, retouches) ; « Tout exporter » convertit
 // chaque image avec les réglages courants (grille et fond détectés image par image)
 // et regroupe les PNG dans un ZIP. L'image ouverte est exportée avec ses retouches.
+// Les boutons d'export de la carte « Exporter » déclenchent cet export quand un lot est ouvert.
 
 import { zip, uniqueNames } from '../core/zip.js';
 import { flatten } from '../core/upscale.js';
@@ -16,9 +17,6 @@ import { toast } from './clipboard.js';
  */
 export function createBatch(root, store, { ask, open }) {
   const list = root.querySelector('#batch-list');
-  const scaleSelect = root.querySelector('#batch-scale');
-  const button = root.querySelector('#batch-export');
-  const label = button.querySelector('span');
   const states = new Map();   // item → texte d'état
   let running = false;
 
@@ -51,19 +49,19 @@ export function createBatch(root, store, { ask, open }) {
       });
       list.append(li);
     });
-    button.disabled = running;
   }
 
-  button.addEventListener('click', async () => {
+  /** Exporte tout le lot en ZIP : `factor` = agrandissement (ignoré si une toile carrée est choisie). */
+  async function exportAll(factor = 1) {
     const { batch, settings } = store.get();
     if (!batch || running) return;
     running = true;
+    store.set({ exporting: true });
     states.clear();
     const files = [];
     const names = [];
     for (let i = 0; i < batch.items.length; i++) {
       const item = batch.items[i];
-      label.textContent = `Export ${i + 1} / ${batch.items.length}…`;
       states.set(item, { text: '…' });
       render();
       try {
@@ -74,7 +72,7 @@ export function createBatch(root, store, { ask, open }) {
           const copy = { width: item.image.width, height: item.image.height, data: new Uint8ClampedArray(item.image.data) };
           image = (await ask({ type: 'process', image: copy, settings }, [copy.data.buffer])).result.image;
         }
-        let { image: out } = exportBase(image, settings.canvasSize, Number(scaleSelect.value));
+        let { image: out } = exportBase(image, settings.canvasSize, factor);
         if (settings.output === 'magenta') out = flatten(out);
         const blob = await toPngBlob(out);
         files.push(new Uint8Array(await blob.arrayBuffer()));
@@ -86,15 +84,16 @@ export function createBatch(root, store, { ask, open }) {
       render();
     }
     running = false;
-    label.textContent = 'Tout exporter (ZIP)';
+    store.set({ exporting: false });
     if (files.length) {
       const unique = uniqueNames(names);
       download(new Blob([zip(files.map((data, k) => ({ name: unique[k], data })))], { type: 'application/zip' }), 'depix-lot.zip');
       toast(`${files.length} image${files.length > 1 ? 's' : ''} exportée${files.length > 1 ? 's' : ''}`);
     } else toast('Aucune image exportée');
     render();
-  });
+  }
 
   watch(store, ['batch'], render);
   render();
+  return { exportAll };
 }

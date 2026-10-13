@@ -42,7 +42,8 @@ export function exportBase(edited, canvasSize, factor = 1) {
   return { image, scale };
 }
 
-export function createExporter(root, store) {
+/** @param opts.exportLot(factor) : export ZIP du lot, appelé à la place du PNG quand un lot est ouvert */
+export function createExporter(root, store, { exportLot } = {}) {
   const buttons = root.querySelectorAll('[data-export]');
   const canvasSelect = root.querySelector('#canvas-size');
   canvasSelect.addEventListener('change', () =>
@@ -56,6 +57,7 @@ export function createExporter(root, store) {
       const { edited, settings, sourceName } = store.get();
       if (!edited?.width) return;
       const factor = Number(btn.dataset.export) || 1;
+      if (store.get().batch && exportLot) return exportLot(factor);
       let { image: img } = exportBase(edited, settings.canvasSize, factor);
       if (settings.output === 'magenta') img = flatten(img);
       const base = (sourceName || 'image').replace(/\.[a-z0-9]+$/i, '');
@@ -81,7 +83,7 @@ export function createExporter(root, store) {
   }
 
   function render() {
-    const { edited, settings } = store.get();
+    const { edited, settings, batch, exporting } = store.get();
     const ok = Boolean(edited?.width);
     const content = ok ? contentSize(edited) : 0;
     if (ok) {
@@ -100,16 +102,18 @@ export function createExporter(root, store) {
     for (const btn of buttons) {
       const fit = btn.dataset.export === 'fit';
       btn.hidden = fit !== onCanvas;
-      btn.disabled = !ok;
+      btn.disabled = !ok || exporting;
       const f = Number(btn.dataset.export) || 1;
       btn.title = ok && !fit ? `${edited.width * f} × ${edited.height * f} px` : '';
     }
+    const lot = batch ? `Lot de ${batch.items.length} images : export en ZIP. ` : '';
+    for (const btn of buttons) if (btn.dataset.export === 'fit') btn.querySelector('span').textContent = batch ? 'Télécharger le ZIP' : 'Télécharger le PNG';
     if (!ok) info.textContent = '';
     else if (onCanvas) {
       const scale = Math.floor(settings.canvasSize / content);
-      info.textContent = `Toile ${settings.canvasSize} × ${settings.canvasSize} px · sprite agrandi ×${scale}`;
-    } else info.textContent = `Taille native : ${edited.width} × ${edited.height} px`;
+      info.textContent = `${lot}Toile ${settings.canvasSize} × ${settings.canvasSize} px · sprite agrandi ×${scale}`;
+    } else info.textContent = `${lot}Taille native : ${edited.width} × ${edited.height} px`;
   }
-  watch(store, ['edited', 'settings'], render);
+  watch(store, ['edited', 'settings', 'batch', 'exporting'], render);
   render();
 }

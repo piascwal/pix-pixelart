@@ -58,6 +58,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
 });
 
 export const store = createStore({
+  exporting: false,    // export du lot en cours
   batch: null,         // lot d'images { items: [{ image, bitmap, name }], active } ou null
   original: null,      // image importée en entier { image, bitmap }
   source: null,        // image de travail { width, height, data } : l'original, ou sa partie rognée
