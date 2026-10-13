@@ -125,14 +125,20 @@ export function walkPoses(limbs, { style = 'face', frames = 8 } = {}) {
         // le pied reste à peu près à plat : il compense la rotation de la jambe
         if (foot !== undefined) pose[foot] = { angle: Math.round(-0.7 * (thighA + shinA)), dx: 0, dy: 0 };
       } else {
-        const lift = Math.round(limbs.height * 0.035 * Math.max(0, sin(leg.phase)));
-        if (shin !== undefined) pose[shin] = { angle: 0, dx: 0, dy: -lift };
-        else pose[thigh] = { angle: 0, dx: 0, dy: -lift };
+        // de face : la jambe levée plie (genou monté), s'écarte un peu et le pied décolle franchement
+        const up = Math.max(0, sin(leg.phase));
+        const lift = limbs.height * 0.07 * up;
+        thighA = Math.round(-leg.side * 9 * up);
+        pose[thigh] = { angle: thighA, dx: 0, dy: -Math.round(lift * 0.45) };
+        if (shin !== undefined) {
+          pose[shin] = { angle: Math.round(leg.side * 6 * up), dx: 0, dy: -Math.round(lift * 0.55) };
+        }
+        if (foot !== undefined) pose[foot] = { angle: Math.round(-leg.side * 4 * up), dx: 0, dy: 0 };
       }
     }
     for (const arm of limbs.arms) {
       const [upper, fore, hand] = arm.parts;
-      const swing = (profile ? 28 : 6) * sin(arm.phase);
+      const swing = (profile ? 28 : 12) * sin(arm.phase);
       pose[upper] = { angle: Math.round(arm.base + (profile ? -facing : arm.side) * swing), dx: 0, dy: 0 };
       let foreA = 0;
       if (fore !== undefined) {
@@ -141,9 +147,11 @@ export function walkPoses(limbs, { style = 'face', frames = 8 } = {}) {
       }
       if (hand !== undefined) pose[hand] = { angle: Math.round(0.3 * foreA), dx: 0, dy: 0 };
     }
-    // le corps descend d'un cran quand les jambes sont écartées (appui)
-    const contact = Math.abs(Math.sin(phi)) > 0.99;
-    pose[BODY] = { angle: 0, dx: 0, dy: contact ? bodyDown : 0 };
+    // rebond : le corps descend à chaque appui (deux fois par cycle) et remonte au passage
+    const bob = profile
+      ? (Math.abs(Math.sin(phi)) > 0.99 ? bodyDown : 0)
+      : Math.round(limbs.height * 0.02 * (0.5 + 0.5 * Math.cos(2 * phi)));
+    pose[BODY] = { angle: 0, dx: 0, dy: bob };
     poses.push(pose);
   }
   return poses;

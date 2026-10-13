@@ -211,10 +211,12 @@ test('marche : 8 poses, les jambes alternent, le cycle boucle', () => {
     const diff = Math.max(...angles(poses[7]).map((a, k) => Math.abs(a - angles(poses[0])[k])));
     assert.ok(diff <= 45, `${style} : saut de ${diff}° entre l'image 8 et l'image 1`);
   }
-  // face : un pied se lève (dy négatif), jamais de rotation de jambe
+  // face : un pied se lève franchement (dy négatif), la jambe s'écarte peu (moins de 15°)
   const face = walkPoses(limbs, { style: 'face' });
   assert.ok(face.some((p) => (p[4]?.dy || p[3]?.dy) < 0));
-  assert.ok(face.every((p) => !p[3]?.angle && !p[4]?.angle));
+  assert.ok(face.every((p) => Math.abs(p[3]?.angle || 0) < 15 && Math.abs(p[4]?.angle || 0) < 15));
+  const hop = Math.max(...face.map((p) => -((p[3]?.dy || 0) + (p[4]?.dy || 0))));
+  assert.ok(hop >= 0.06 * limbs.height, `pied levé de ${hop} px`);
   // profil vers la droite : la cuisse avant a un angle négatif (sens antihoraire)
   const right = walkPoses(limbs, { style: 'droite' });
   assert.ok(right.some((p) => p[3].angle < 0) && right.some((p) => p[3].angle > 0));
