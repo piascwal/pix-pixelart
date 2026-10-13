@@ -15,6 +15,7 @@ import { createMiniPreview } from './miniPreview.js';
 import { createExporter } from './exporter.js';
 import { setupTooltips } from './tooltips.js';
 import { setupAnimation } from './anim/animMode.js';
+import { createBatch } from './batch.js';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -66,15 +67,27 @@ async function work(image, bitmap) {
   }
 }
 
-function onImage({ image, bitmap, name }) {
+function openImage({ image, bitmap, name }) {
   store.set({ original: { image, bitmap }, sourceName: name, tool: 'none' });
   work(image, bitmap);
+}
+
+// une image seule remplace tout (lot compris) ; plusieurs forment un lot dont la première s'ouvre
+function onImage(item) {
+  store.set({ batch: null });
+  openImage(item);
+}
+
+function onBatch(items) {
+  store.set({ batch: { items, active: 0 } });
+  openImage(items[0]);
 }
 
 setupImporter({
   dropTarget: document.body,
   fileInput: $('#file'),
   onImage,
+  onBatch,
   onError: (message) => store.set({ error: message }),
 });
 
@@ -163,6 +176,7 @@ createMiniPreview($('#mini-preview'), store, $('.pane-result'), $('#stage'));
 createControls($('#controls'), store);
 createPaletteView($('#palette'), $('#swatch-detail'), store);
 createExporter($('#export'), store);
+createBatch($('#batch'), store, { ask, open: openImage });
 setupTooltips();
 setupAnimation(store);
 

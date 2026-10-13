@@ -518,3 +518,16 @@ input.part-name { padding: 3px 6px; border: 1px solid var(--line); border-radius
   -webkit-user-select: none; user-select: none;
   -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;
 }
+
+/* lot d'images */
+.batch-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 240px; overflow-y: auto; }
+.batch-item {
+  display: grid; grid-template-columns: 40px 1fr auto; align-items: center; gap: 8px;
+  padding: 4px; border: 1px solid transparent; border-radius: 8px; cursor: pointer;
+}
+.batch-item:hover { background: var(--surface); }
+.batch-item.is-active { border-color: var(--accent); background: var(--surface); }
+.batch-item canvas { width: 40px; height: 40px; object-fit: contain; image-rendering: pixelated; background: repeating-conic-gradient(#0002 0 25%, transparent 0 50%) 0 0 / 8px 8px; border-radius: 4px; }
+.batch-item .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.85rem; }
+.batch-item .state { font-size: 0.75rem; color: var(--muted, #8a86a0); }
+.batch-item.is-error .state { color: #ff6b6b; }

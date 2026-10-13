@@ -75,7 +75,7 @@
           <p class="dropzone-title">Glissez une image ici</p>
           <p>ou collez-la (Ctrl+V)</p>
           <label class="btn btn-primary">
-            <input type="file" id="file" accept="image/png,image/jpeg,image/webp" hidden>
+            <input type="file" id="file" accept="image/png,image/jpeg,image/webp" multiple hidden>
             Choisir une image
           </label>
           <p class="muted">PNG, JPG ou WebP. Rien n'est envoyé : la conversion se fait sur votre appareil.</p>
@@ -204,6 +204,21 @@
         </div>
       </details>
     </form>
+
+    <section id="batch" class="card" hidden>
+      <h2>Lot d'images</h2>
+      <ul class="batch-list" id="batch-list"></ul>
+      <div class="field">
+        <label for="batch-scale">Échelle du ZIP</label>
+        <select id="batch-scale">
+          <option value="1">Native ×1</option>
+          <option value="2">×2</option>
+          <option value="4">×4</option>
+          <option value="8">×8</option>
+        </select>
+      </div>
+      <button type="button" class="btn btn-primary" id="batch-export"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#download"/></svg> <span>Tout exporter (ZIP)</span></button>
+    </section>
 
     <section id="export" class="card">
       <h2>Exporter en PNG</h2>

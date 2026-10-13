@@ -2,6 +2,7 @@
 
 const ACCEPTED = ['image/png', 'image/jpeg', 'image/webp'];
 const MAX_PIXELS = 24e6;
+const MAX_BATCH = 60;
 
 /** Décode un fichier image en { image: {width,height,data}, bitmap: canvas }. */
 export async function decodeImage(blob) {
@@ -22,9 +23,9 @@ export async function decodeImage(blob) {
 
 /**
  * @param {{ dropTarget: HTMLElement, fileInput: HTMLInputElement, onImage: Function, onError: Function }} opts
- *   onImage({ image, bitmap, name })
+ *   onImage({ image, bitmap, name }) ; onBatch([{ image, bitmap, name }…]) quand plusieurs images arrivent d'un coup
  */
-export function setupImporter({ dropTarget, fileInput, onImage, onError }) {
+export function setupImporter({ dropTarget, fileInput, onImage, onBatch, onError }) {
   async function load(file, name) {
     if (!file) return;
     if (file.type && !ACCEPTED.includes(file.type)) {
@@ -39,9 +40,27 @@ export function setupImporter({ dropTarget, fileInput, onImage, onError }) {
     }
   }
 
+  /** Une image : comme avant. Plusieurs : un lot, dans l'ordre. */
+  async function loadMany(files) {
+    const list = [...files].slice(0, MAX_BATCH);
+    if (list.length <= 1 || !onBatch) return load(list[0]);
+    const items = [];
+    for (const file of list) {
+      if (file.type && !ACCEPTED.includes(file.type)) continue;
+      try {
+        items.push({ ...(await decodeImage(file)), name: file.name || 'image' });
+      } catch (err) {
+        onError(`${file.name} : ${err.message || 'image illisible'}`);
+      }
+    }
+    if (items.length === 1) onImage(items[0]);
+    else if (items.length) onBatch(items);
+  }
+
   fileInput.addEventListener('change', () => {
-    load(fileInput.files[0]);
+    const files = [...fileInput.files];
     fileInput.value = '';
+    loadMany(files);
   });
 
   // glisser-déposer n'importe où sur la page
@@ -61,7 +80,7 @@ export function setupImporter({ dropTarget, fileInput, onImage, onError }) {
     e.preventDefault();
     depth = 0;
     dropTarget.classList.remove('is-dragging');
-    load(e.dataTransfer?.files[0]);
+    if (e.dataTransfer?.files?.length) loadMany(e.dataTransfer.files);
   });
 
   window.addEventListener('paste', (e) => {
