@@ -60,7 +60,13 @@ async function work(image, bitmap) {
     store.set((s) => ({
       detected: { grid, background },
       // grille détectée, ou calculée depuis la taille voulue si on est en mode « taille choisie »
-      settings: withTargetGrid({ ...s.settings, period: grid.period, offsetX: grid.offsetX, offsetY: grid.offsetY }, image),
+      // lot : une grille réglée à la main reste en place d'une image à l'autre
+      settings: withTargetGrid(
+        s.settings.gridLocked && s.settings.gridMode === 'detect'
+          ? s.settings
+          : { ...s.settings, period: grid.period, offsetX: grid.offsetX, offsetY: grid.offsetY },
+        image,
+      ),
     }));
   } catch (err) {
     store.set({ error: err.message, busy: false });
@@ -74,12 +80,12 @@ function openImage({ image, bitmap, name }) {
 
 // une image seule remplace tout (lot compris) ; plusieurs forment un lot dont la première s'ouvre
 function onImage(item) {
-  store.set({ batch: null });
+  store.set((s) => ({ batch: null, settings: { ...s.settings, gridLocked: false } }));
   openImage(item);
 }
 
 function onBatch(items) {
-  store.set({ batch: { items, active: 0 } });
+  store.set((s) => ({ batch: { items, active: 0 }, settings: { ...s.settings, gridLocked: false } }));
   openImage(items[0]);
 }
 

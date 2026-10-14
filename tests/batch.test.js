@@ -57,3 +57,13 @@ test('lot : deux images aux grilles différentes traitées avec les mêmes régl
   const t = processWithSettings(sprite(6, 20), { ...settings, gridMode: 'target', targetSize: 10, removeBg: false });
   assert.equal(Math.max(t.image.width, t.image.height), 10);
 });
+
+test('lot : une grille réglée à la main s\'applique à toutes les images', () => {
+  const img = createImage(120, 120);
+  for (let y = 0; y < 120; y++) for (let x = 0; x < 120; x++) img.data.set([(x * 2) % 256, (y * 2) % 256, 128, 255], (y * 120 + x) * 4);
+  const base = { gridMode: 'detect', targetSize: 64, removeBg: true, tolerance: 60, colors: 32, paletteRules: { excluded: [], replace: {} }, cleanup: false, minIsland: 4 };
+  const locked = processWithSettings(img, { ...base, gridLocked: true, period: 10, offsetX: 0, offsetY: 0 });
+  assert.equal(locked.image.width, 12);                  // 120 / 10 cases
+  const other = processWithSettings(img, { ...base, gridLocked: true, period: 20, offsetX: 0, offsetY: 0 });
+  assert.equal(other.image.width, 6);
+});

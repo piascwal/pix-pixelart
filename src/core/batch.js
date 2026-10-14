@@ -10,7 +10,10 @@ const NO_BACKGROUND = { r: 0, g: 0, b: 0, transparent: true };
 
 export function processWithSettings(image, s) {
   const { grid, background } = analyze(image);
-  const g = s.gridMode === 'target' ? targetGrid(image.width, image.height, s.targetSize) : grid;
+  // taille choisie : la même pour tout le lot ; grille réglée à la main : idem ; sinon la détection de l'image
+  const g = s.gridMode === 'target' ? targetGrid(image.width, image.height, s.targetSize)
+    : s.gridLocked ? { period: s.period, offsetX: s.offsetX, offsetY: s.offsetY }
+      : grid;
   return convert(image, {
     grid: { period: g.period, offsetX: g.offsetX, offsetY: g.offsetY },
     background: s.gridMode === 'target' && !s.removeBg ? NO_BACKGROUND : background,

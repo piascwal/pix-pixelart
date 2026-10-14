@@ -17,14 +17,19 @@ export function withTargetGrid(settings, source) {
  * Relie un curseur + champ numérique à settings[key].
  * Le HTML porte : <input type="range" data-setting="key"> et <input type="number" data-setting="key">
  */
+const GRID_KEYS = new Set(['period', 'offsetX', 'offsetY']);
+
 function bindNumber(root, store, key) {
+  const s0 = () => store.get();
   const inputs = root.querySelectorAll(`[data-setting="${key}"]`);
   const commit = (raw) => {
     const v = Number(raw);
     if (!Number.isFinite(v)) return;
     // une autre palette n'a plus les mêmes codes hexa : les choix manuels n'auraient plus de sens
     const reset = key === 'colors' ? { paletteRules: EMPTY_RULES } : {};
-    store.set((s) => ({ settings: withTargetGrid({ ...s.settings, [key]: v, ...reset }, s.source) }));
+    // dans un lot, régler la grille à la main la fixe pour toutes les images
+    const lock = GRID_KEYS.has(key) && s0().batch ? { gridLocked: true } : {};
+    store.set((s) => ({ settings: withTargetGrid({ ...s.settings, [key]: v, ...reset, ...lock }, s.source) }));
   };
   for (const input of inputs) {
     input.addEventListener('input', () => commit(input.value));
@@ -56,7 +61,7 @@ export function createControls(root, store) {
       let settings = { ...s.settings, gridMode: radio.value, removeBg: radio.value === 'detect' };
       if (radio.value === 'detect' && s.detected) {
         const { period, offsetX, offsetY } = s.detected.grid;
-        settings = { ...settings, period, offsetX, offsetY };
+        settings = { ...settings, period, offsetX, offsetY, gridLocked: false };
       }
       return { settings: withTargetGrid(settings, s.source) };
     }));
@@ -81,7 +86,7 @@ export function createControls(root, store) {
     const { detected } = store.get();
     if (!detected) return;
     const { period, offsetX, offsetY } = detected.grid;
-    store.set((s) => ({ settings: { ...s.settings, period, offsetX, offsetY } }));
+    store.set((s) => ({ settings: { ...s.settings, period, offsetX, offsetY, gridLocked: false } }));
   });
 
   const detectedInfo = root.querySelector('[data-info="detected"]');
@@ -116,6 +121,7 @@ export function createControls(root, store) {
         `Détecté : case de ${period.toFixed(2).replace('.', ',')} px (confiance ${confiance}) · fond `,
         swatch(transparent ? null : `rgb(${r}, ${g}, ${b})`),
         transparent ? ' transparent' : ` rvb(${r}, ${g}, ${b})`,
+        settings.gridLocked ? ' · grille appliquée à tout le lot' : '',
       );
     } else {
       detectedInfo.textContent = '';
