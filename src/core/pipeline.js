@@ -64,7 +64,7 @@ export function convert(img, options) {
     palette,
     lines,
     focus: focusBounds(image),
-    stats: { width: image.width, height: image.height, filled, colors: new Set(targets.map(toHex)).size },
+    stats: { width: image.width, height: image.height, filled, colors: new Set(targets.filter(Boolean).map(toHex)).size },
   };
 }
 

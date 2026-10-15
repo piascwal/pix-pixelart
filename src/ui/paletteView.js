@@ -6,7 +6,7 @@
 // conversion les applique (core/palette.js, resolvePalette) et redessine.
 
 import { toHex } from '../core/image.js';
-import { EMPTY_RULES } from '../core/palette.js';
+import { EMPTY_RULES, TRANSPARENT } from '../core/palette.js';
 import { watch } from './state.js';
 import { copyText, toast } from './clipboard.js';
 import { icon } from './icons.js';
@@ -29,8 +29,8 @@ function button(label, onClick, { primary = false, disabled = false, icon: name 
 }
 
 function miniSwatch(hex) {
-  const s = el('span', 'mini-swatch');
-  s.style.background = hex;
+  const s = el('span', 'mini-swatch' + (hex === TRANSPARENT ? ' is-transparent' : ''));
+  if (hex !== TRANSPARENT) s.style.background = hex;
   return s;
 }
 
@@ -83,6 +83,18 @@ export function createPaletteView(container, detail, store) {
     const r = rules();
     container.replaceChildren();
     if (!result) return;
+    if (paletteReplacing) {
+      // toujours proposé en premier : rendre ses pixels transparents
+      const t = el('button', 'swatch is-transparent is-target');
+      t.type = 'button';
+      t.title = 'Transparent';
+      t.setAttribute('aria-label', 'Remplacer par transparent');
+      t.addEventListener('click', () => {
+        setReplacement(store.get().paletteSel, TRANSPARENT);
+        store.set({ paletteReplacing: false });
+      });
+      container.append(t);
+    }
     for (const rgb of result.palette) {
       const hex = toHex(rgb);
       const excluded = r.excluded.includes(hex);
@@ -94,8 +106,8 @@ export function createPaletteView(container, detail, store) {
       if (excluded) b.classList.add('is-excluded');
       if (target) {
         b.classList.add('is-replaced');
-        const badge = el('span', 'swatch-badge');
-        badge.style.background = target;
+        const badge = el('span', 'swatch-badge' + (target === TRANSPARENT ? ' is-transparent' : ''));
+        if (target !== TRANSPARENT) badge.style.background = target;
         b.append(badge);
       }
       if (paletteReplacing) {
@@ -139,7 +151,7 @@ export function createPaletteView(container, detail, store) {
 
     const status = el('p', 'hint');
     if (target) {
-      status.append('Remplacée par ', miniSwatch(target), ` ${target}`);
+      status.append('Remplacée par ', miniSwatch(target), target === TRANSPARENT ? ' transparent' : ` ${target}`);
     } else if (excluded) {
       status.textContent = 'Non utilisée : ses pixels prennent la couleur restante la plus proche.';
     } else {
@@ -149,7 +161,7 @@ export function createPaletteView(container, detail, store) {
 
     if (paletteReplacing) {
       detail.append(
-        el('p', 'detail-prompt', 'Touchez la couleur du nuancier qui doit la remplacer.'),
+        el('p', 'detail-prompt', 'Touchez la couleur du nuancier qui doit la remplacer, ou transparent.'),
         button('Annuler', () => store.set({ paletteReplacing: false })),
       );
       return;

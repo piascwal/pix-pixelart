@@ -9,6 +9,7 @@ import { flatten } from '../core/upscale.js';
 import { watch } from './state.js';
 import { download, toPngBlob, exportBase } from './exporter.js';
 import { toast } from './clipboard.js';
+import { icon } from './icons.js';
 
 /**
  * @param root     section #batch
@@ -19,6 +20,22 @@ export function createBatch(root, store, { ask, open }) {
   const list = root.querySelector('#batch-list');
   const states = new Map();   // item → texte d'état
   let running = false;
+
+  /** Sort l'image i du lot ; s'il n'en reste qu'une, ce n'est plus un lot. */
+  function remove(i) {
+    const { batch } = store.get();
+    if (!batch || running) return;
+    const items = batch.items.filter((_, k) => k !== i);
+    const wasActive = i === batch.active;
+    if (items.length <= 1) {
+      store.set({ batch: null });
+      if (wasActive && items[0]) open(items[0]);
+      return;
+    }
+    const active = i < batch.active ? batch.active - 1 : Math.min(batch.active, items.length - 1);
+    store.set({ batch: { items, active } });
+    if (wasActive) open(items[active]);
+  }
 
   function render() {
     const { batch } = store.get();
@@ -41,7 +58,15 @@ export function createBatch(root, store, { ask, open }) {
       const state = document.createElement('span');
       state.className = 'state';
       state.textContent = states.get(item)?.text || '';
-      li.append(thumb, name, state);
+      const rm = document.createElement('button');
+      rm.type = 'button';
+      rm.className = 'icon-btn';
+      rm.append(icon('x'));
+      rm.setAttribute('aria-label', 'Retirer du lot');
+      rm.dataset.tip = 'Retirer du lot';
+      rm.disabled = running;
+      rm.addEventListener('click', (e) => { e.stopPropagation(); remove(i); });
+      li.append(thumb, name, state, rm);
       li.addEventListener('click', () => {
         if (running || i === store.get().batch.active) return;
         store.set((s) => ({ batch: { ...s.batch, active: i } }));

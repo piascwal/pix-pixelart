@@ -105,6 +105,18 @@ export function createInspector(container, store, editor) {
     if (choosing) {
       container.append(el('p', 'detail-prompt', 'Choisissez une couleur déjà présente dans l’image.'));
       const grid = el('div', 'swatches');
+      if (!empty) {
+        // toujours proposé en premier : rendre la case transparente
+        const t = el('button', 'swatch is-transparent');
+        t.type = 'button';
+        t.title = 'Transparent';
+        t.setAttribute('aria-label', 'Remplacer par transparent');
+        t.addEventListener('click', () => {
+          choosing = false;
+          if (all) apply(rgb, pixelSel, null); else editor.setPixel(pixelSel, null);
+        });
+        grid.append(t);
+      }
       for (const c of usedColors(edited)) {
         const h = toHex(c);
         const b = el('button', 'swatch' + (!empty && h === hex ? ' is-selected' : ''));

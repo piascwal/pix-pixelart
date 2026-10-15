@@ -522,7 +522,7 @@ input.part-name { padding: 3px 6px; border: 1px solid var(--line); border-radius
 /* lot d'images */
 .batch-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 240px; overflow-y: auto; }
 .batch-item {
-  display: grid; grid-template-columns: 40px 1fr auto; align-items: center; gap: 8px;
+  display: grid; grid-template-columns: 40px 1fr auto auto; align-items: center; gap: 8px;
   padding: 4px; border: 1px solid transparent; border-radius: 8px; cursor: pointer;
 }
 .batch-item:hover { background: var(--surface); }
@@ -534,3 +534,9 @@ input.part-name { padding: 3px 6px; border: 1px solid var(--line); border-radius
 
 #batch { display: grid; gap: 8px; padding-bottom: 12px; margin-bottom: 4px; border-bottom: 1px solid var(--line); }
 #export > #batch + h2 { margin-top: 0; padding-top: 0; border-top: 0; }
+
+/* « transparent » dans les listes de remplacement : damier */
+.swatch.is-transparent, .mini-swatch.is-transparent, .swatch-badge.is-transparent {
+  background: repeating-conic-gradient(#8884 0 25%, #fff3 0 50%) 0 0 / 8px 8px;
+}
+.mini-swatch.is-transparent, .swatch-badge.is-transparent { background-size: 6px 6px; }

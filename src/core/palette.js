@@ -119,6 +119,7 @@ export function applyPalette(img, palette, targets = palette) {
     const key = packRGB(d[i], d[i + 1], d[i + 2]);
     let idx = cache.get(key);
     if (idx === undefined) cache.set(key, (idx = nearestIndex(palette, d[i], d[i + 1], d[i + 2])));
+    if (targets[idx] === null) { d[i + 3] = 0; continue; }   // remplacée par « transparent »
     [d[i], d[i + 1], d[i + 2]] = targets[idx];
   }
   return out;
@@ -133,9 +134,11 @@ export function usedColors(img) {
  * Choix manuels sur la palette, par code hexa (« #rrggbb ») :
  *   excluded : couleurs à ne pas utiliser (leurs pixels prennent la couleur
  *              restante la plus proche) ;
- *   replace  : { '#a': '#b' } la couleur a est remplacée par la couleur b.
+ *   replace  : { '#a': '#b' } la couleur a est remplacée par la couleur b ;
+ *              { '#a': 'transparent' } ses pixels deviennent transparents.
  * Un remplacement l'emporte sur une exclusion de la même couleur.
  */
+export const TRANSPARENT = 'transparent';
 export const EMPTY_RULES = Object.freeze({ excluded: Object.freeze([]), replace: Object.freeze({}) });
 
 /**
@@ -147,7 +150,7 @@ export const EMPTY_RULES = Object.freeze({ excluded: Object.freeze([]), replace:
  * écartée, on prend la couleur non écartée la plus proche, ET on lui applique à
  * son tour ses remplacements (sinon les pixels d'une couleur écartée resteraient
  * sur une couleur pourtant remplacée).
- * @returns {Array<[number, number, number]>} targets, de même longueur que palette
+ * @returns {Array<[number, number, number] | null>} targets, de même longueur que palette (null : transparent)
  */
 export function resolvePalette(palette, rules = EMPTY_RULES) {
   const excluded = new Set(rules.excluded || []);
@@ -161,6 +164,7 @@ export function resolvePalette(palette, rules = EMPTY_RULES) {
     // suit les remplacements, avec garde-fou contre les cycles
     for (let step = 0; step < palette.length; step++) {
       const next = replace[hex];
+      if (next === TRANSPARENT) return TRANSPARENT;
       if (!next || next === hex || !byHex.has(next)) break;
       hex = next;
     }
@@ -169,5 +173,8 @@ export function resolvePalette(palette, rules = EMPTY_RULES) {
     const near = toHex(active[nearestIndex(active, r, g, b)]);
     return depth < 4 ? resolve(near, depth + 1) : near;
   };
-  return palette.map((color) => byHex.get(resolve(toHex(color))));
+  return palette.map((color) => {
+    const hex = resolve(toHex(color));
+    return hex === TRANSPARENT ? null : byHex.get(hex);
+  });
 }

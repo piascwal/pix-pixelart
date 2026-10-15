@@ -119,3 +119,15 @@ test('chaîne mixte : écartée → plus proche remplacée → cible elle-même 
   assert.deepEqual(t[1], C);
   assert.deepEqual(t[0], C);
 });
+
+test('remplacement par « transparent » : les pixels de cette couleur disparaissent', async () => {
+  const { resolvePalette, applyPalette, TRANSPARENT } = await import('../src/core/palette.js');
+  const palette = [[255, 0, 0], [0, 255, 0], [0, 0, 255]];
+  const targets = resolvePalette(palette, { excluded: [], replace: { '#ff0000': TRANSPARENT, '#00ff00': '#ff0000' } });
+  assert.equal(targets[0], null);
+  assert.equal(targets[1], null);                       // vert → rouge → transparent
+  assert.deepEqual(targets[2], [0, 0, 255]);
+  const img = { width: 3, height: 1, data: new Uint8ClampedArray([255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255]) };
+  const out = applyPalette(img, palette, targets);
+  assert.deepEqual([out.data[3], out.data[7], out.data[11]], [0, 0, 255]);
+});
