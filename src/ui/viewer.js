@@ -8,6 +8,7 @@
 //   tactile  sans outil : la page défile normalement
 //            avec un outil : 1 doigt = déplacer (main), dessiner ou tracer le rognage
 //            2 doigts = pincer pour zoomer, glisser pour faire défiler la page
+//            appui long sans bouger (quel que soit l'outil) : le menu des outils s'ouvre sous le doigt
 
 import { gridLines } from '../core/gridDetect.js';
 import { watch } from './state.js';
@@ -15,13 +16,16 @@ import { watch } from './state.js';
 const MIN_SCALE = 0.05;
 const MAX_SCALE = 64;
 const EDIT_TOOLS = new Set(['pencil', 'eraser', 'picker']);
+const APPUI_LONG_MS = 480;
+const APPUI_LONG_TOLERANCE = 8;
 
 /**
  * @param {{ original: HTMLCanvasElement, result: HTMLCanvasElement }} canvases
  * @param {object} store
  * @param {{ onEditPointer: (phase: 'down'|'move'|'up', cell: {x,y}|null) => void,
  *           onCropPointer: (phase: 'down'|'move'|'up'|'cancel', pt: {x,y}|null) => void,
- *           onInspect: (cell: {x,y}|null) => void }} hooks
+ *           onInspect: (cell: {x,y}|null) => void,
+ *           onToolMenu: (x: number, y: number) => void }} hooks
  */
 export function createViewer(canvases, store, hooks) {
   const cam = { scale: 1, cx: 0, cy: 0 };
@@ -264,6 +268,31 @@ export function createViewer(canvases, store, hooks) {
   const pointers = new Map(); // id → position à l'écran (clientX / clientY)
   let pinch = null;
   const endAllGestures = [];
+  const abandonAll = [];
+  let hold = null;        // appui long en attente : { timer, x, y }
+  let suspendu = null;    // le doigt qui a ouvert le menu : ignoré jusqu'à ce qu'il se lève
+
+  const stopHold = () => {
+    if (hold) clearTimeout(hold.timer);
+    hold = null;
+  };
+  function startHold(e) {
+    stopHold();
+    const { clientX: x, clientY: y, pointerId } = e;
+    hold = {
+      x,
+      y,
+      timer: setTimeout(() => {
+        hold = null;
+        if (!pointers.has(pointerId) || pointers.size !== 1) return;
+        // le geste en cours (un point de crayon, un rognage) est annulé : on voulait le menu, pas dessiner
+        abandonAll.forEach((abandonne) => abandonne());
+        suspendu = pointerId;
+        navigator.vibrate?.(15);
+        hooks.onToolMenu?.(x, y);
+      }, APPUI_LONG_MS),
+    };
+  }
 
   for (const pane of panes) {
     const { canvas } = pane;
@@ -286,6 +315,17 @@ export function createViewer(canvases, store, hooks) {
       tap = null;
     }
     endAllGestures.push(endGesture);
+    abandonAll.push(() => {
+      if (gesture === 'edit') hooks.onEditPointer('cancel', null);
+      else if (gesture === 'crop') hooks.onCropPointer('cancel', null);
+      gesture = null;
+      tap = null;
+    });
+
+    // l'appui long ouvre le menu des outils : pas de menu contextuel ni de sélection du navigateur par-dessus
+    canvas.addEventListener('contextmenu', (e) => {
+      if (pointers.size || suspendu !== null) e.preventDefault();
+    });
 
     canvas.addEventListener('wheel', (e) => {
       // si la page défile (téléphone, petite fenêtre), la molette la fait défiler ;
@@ -304,7 +344,9 @@ export function createViewer(canvases, store, hooks) {
       // mais deux doigts la zooment. La souris peut toujours déplacer.
       canvas.setPointerCapture(e.pointerId);
       pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (e.pointerType !== 'mouse' && pointers.size === 1) startHold(e);
       if (pointers.size === 2) {
+        stopHold();
         endAllGestures.forEach((end) => end());
         const [a, b] = [...pointers.values()];
         pinch = { dist: Math.hypot(a.x - b.x, a.y - b.y), mid: [(a.x + b.x) / 2, (a.y + b.y) / 2] };
@@ -329,6 +371,8 @@ export function createViewer(canvases, store, hooks) {
       if (!prev) return;
       const cur = { x: e.clientX, y: e.clientY };
       pointers.set(e.pointerId, cur);
+      if (hold && Math.hypot(cur.x - hold.x, cur.y - hold.y) > APPUI_LONG_TOLERANCE) stopHold();
+      if (suspendu === e.pointerId) return;
       // un appui qui glisse est un déplacement, pas une sélection
       if (tap && Math.hypot(cur.x - tap.x, cur.y - tap.y) > 8) tap = null;
 
@@ -354,6 +398,13 @@ export function createViewer(canvases, store, hooks) {
     });
 
     const release = (e) => {
+      stopHold();
+      if (suspendu === e.pointerId) {
+        suspendu = null;
+        pointers.delete(e.pointerId);
+        pinch = null;
+        return;
+      }
       if (!pointers.delete(e.pointerId)) return;
       if (pointers.size < 2) pinch = null;
       if (pointers.size === 0) {

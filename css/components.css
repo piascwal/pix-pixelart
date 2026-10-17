@@ -540,3 +540,20 @@ input.part-name { padding: 3px 6px; border: 1px solid var(--line); border-radius
   background: repeating-conic-gradient(#8884 0 25%, #fff3 0 50%) 0 0 / 8px 8px;
 }
 .mini-swatch.is-transparent, .swatch-badge.is-transparent { background-size: 6px 6px; }
+
+/* menu des outils (appui long sur l'image) */
+.pane canvas { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+.tool-menu {
+  position: fixed; z-index: 60; display: flex; flex-wrap: wrap; gap: 4px; padding: 6px;
+  max-width: min(352px, calc(100vw - 16px)); background: var(--surface-2); border: 1px solid var(--line);
+  border-radius: 14px; box-shadow: 0 8px 28px #0008;
+}
+.tool-menu[hidden] { display: none; }
+.tool-menu button {
+  display: grid; justify-items: center; gap: 3px; width: 54px; padding: 7px 2px 5px; border: 0; border-radius: 10px;
+  background: transparent; color: var(--text); font: inherit; font-size: 0.68rem; line-height: 1.1;
+}
+.tool-menu button .icon { width: 22px; height: 22px; }
+.tool-menu button:disabled { opacity: 0.35; }
+.tool-menu button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+.tool-menu button:active:not(:disabled) { background: var(--surface); }

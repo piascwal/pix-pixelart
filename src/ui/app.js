@@ -11,6 +11,7 @@ import { createPaletteView } from './paletteView.js';
 import { createEditor } from './editor.js';
 import { createCropper } from './cropper.js';
 import { createInspector } from './inspector.js';
+import { createToolMenu } from './menuOutils.js';
 import { createMiniPreview } from './miniPreview.js';
 import { createExporter } from './exporter.js';
 import { setupTooltips } from './tooltips.js';
@@ -173,10 +174,11 @@ const cropper = createCropper(store, {
   onReset: restoreOriginal,
 });
 const inspector = createInspector($('#pixel-info'), store, editor);
+const menuOutils = createToolMenu(store);
 const viewer = createViewer(
   { original: $('#view-original'), result: $('#view-result') },
   store,
-  { onEditPointer: editor.onEditPointer, onCropPointer: cropper.onCropPointer, onInspect: inspector.select },
+  { onEditPointer: editor.onEditPointer, onCropPointer: cropper.onCropPointer, onInspect: inspector.select, onToolMenu: menuOutils.ouvre },
 );
 createMiniPreview($('#mini-preview'), store, $('.pane-result'), $('#stage'));
 createControls($('#controls'), store);

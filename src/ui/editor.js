@@ -66,6 +66,16 @@ export function createEditor(store) {
   function onEditPointer(phase, cell) {
     const s = store.get();
     if (!s.edited) return;
+    // trait abandonné (appui long : on voulait le menu des outils) : on remet l'image comme avant le geste
+    if (phase === 'cancel') {
+      if (snapshot) {
+        s.edited.data.set(snapshot);
+        bump();
+      }
+      snapshot = null;
+      last = null;
+      return;
+    }
     if (s.tool === 'picker') {
       if (phase === 'down') pick(cell);
       return;
