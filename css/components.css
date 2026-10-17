@@ -260,7 +260,7 @@ body.has-image.is-dragging .dropzone {
 .swatch:hover { transform: scale(1.12); }
 .swatch.is-selected { outline: 2px solid #fff; outline-offset: 1px; box-shadow: 0 0 0 4px #000; }
 
-.export-buttons { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.export-buttons { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .export-buttons.two { grid-template-columns: 1fr 1fr; }
 .export-buttons .btn { white-space: normal; text-align: center; }
 
@@ -557,3 +557,9 @@ input.part-name { padding: 3px 6px; border: 1px solid var(--line); border-radius
 .tool-menu button:disabled { opacity: 0.35; }
 .tool-menu button[aria-pressed="true"] { background: var(--accent); color: #fff; }
 .tool-menu button:active:not(:disabled) { background: var(--surface); }
+
+/* la taille du fichier sous chaque bouton d'export */
+.export-buttons .btn { flex-wrap: wrap; justify-content: center; align-content: center; }
+.export-buttons .dim span { display: block; white-space: nowrap; }
+.export-buttons .dim { flex-basis: 100%; margin-top: 2px; font-size: 0.66rem; font-weight: 400; line-height: 1.2; opacity: 0.8; text-align: center; }
+.export-buttons .btn[data-export="fit"] { grid-column: 1 / -1; }

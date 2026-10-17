@@ -82,6 +82,42 @@ export function createExporter(root, store, { exportLot } = {}) {
     });
   }
 
+  // sous chaque bouton : la taille du fichier qu'il donnerait (dimensions tout de suite, poids du PNG un instant après)
+  const dims = new Map();
+  for (const btn of buttons) {
+    const small = document.createElement('small');
+    small.className = 'dim';
+    small.append(document.createElement('span'), document.createElement('span'));
+    btn.append(small);
+    dims.set(btn, small);
+  }
+  const poids = (octets) => (octets < 1024 ? `${octets} o` : octets < 1048576 ? `${Math.round(octets / 1024)} Ko` : `${(octets / 1048576).toFixed(1).replace('.', ',')} Mo`);
+  let minuteur = 0;
+  let jeton = 0;
+
+  /** Encode vraiment chaque export possible (au repos, et seulement s'il n'est pas énorme) pour en donner le poids. */
+  function programmePoids() {
+    clearTimeout(minuteur);
+    const mon = ++jeton;
+    minuteur = setTimeout(async () => {
+      const { edited, settings, batch } = store.get();
+      if (!edited?.width || batch) return;
+      for (const btn of buttons) {
+        if (btn.hidden) continue;
+        const f = Number(btn.dataset.export) || 1;
+        const surface = settings.canvasSize > 0 ? settings.canvasSize ** 2 : edited.width * edited.height * f * f;
+        if (surface > 4e6) continue;
+        let { image: img } = exportBase(edited, settings.canvasSize, f);
+        if (settings.output === 'magenta') img = flatten(img);
+        const taille = (await toPngBlob(img)).size;
+        if (mon !== jeton) return;       // un réglage a changé entre-temps
+        const [d, pd] = dims.get(btn).children;
+        d.textContent = `${img.width} × ${img.height}`;
+        pd.textContent = poids(taille);
+      }
+    }, 350);
+  }
+
   function render() {
     const { edited, settings, batch, exporting } = store.get();
     const ok = Boolean(edited?.width);
@@ -104,8 +140,14 @@ export function createExporter(root, store, { exportLot } = {}) {
       btn.hidden = fit !== onCanvas;
       btn.disabled = !ok || exporting;
       const f = Number(btn.dataset.export) || 1;
-      btn.title = ok && !fit ? `${edited.width * f} × ${edited.height * f} px` : '';
+      btn.title = '';
+      // les dimensions se savent tout de suite ; dans un lot, la taille varie d'une image à l'autre (sauf toile carrée)
+      const [w, h] = !ok ? [0, 0] : onCanvas ? [settings.canvasSize, settings.canvasSize] : [edited.width * f, edited.height * f];
+      const [d, pd] = dims.get(btn).children;
+      d.textContent = ok && (onCanvas || !batch) ? `${w} × ${h}` : '';
+      if (!ok || batch) pd.textContent = '';
     }
+    programmePoids();
     const lot = batch ? `Lot de ${batch.items.length} images : export en ZIP. ` : '';
     for (const btn of buttons) if (btn.dataset.export === 'fit') btn.querySelector('span').textContent = batch ? 'Télécharger le ZIP' : 'Télécharger le PNG';
     if (!ok) info.textContent = '';
