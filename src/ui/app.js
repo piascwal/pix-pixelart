@@ -13,7 +13,7 @@ import { createCropper } from './cropper.js';
 import { createInspector } from './inspector.js';
 import { createToolMenu } from './menuOutils.js';
 import { createMiniPreview } from './miniPreview.js';
-import { createExporter } from './exporter.js';
+import { createExporter, resumeExport } from './exporter.js';
 import { setupTooltips } from './tooltips.js';
 import { setupAnimation } from './anim/animMode.js';
 import { createBatch } from './batch.js';
@@ -233,6 +233,7 @@ window.addEventListener('keydown', (e) => {
 
 /* ------------------------------------------------------------- rendu --- */
 
+
 function render() {
   const s = store.get();
   document.body.classList.toggle('has-image', Boolean(s.source));
@@ -256,8 +257,12 @@ function render() {
   if (s.error) status.textContent = s.error;
   else if (s.busy) status.textContent = 'Conversion…';
   else if (s.result) {
-    const { width, height, filled, colors } = s.result.stats;
-    status.textContent = `${width} × ${height} px · ${colors} couleurs · ${filled} pixels pleins`;
+    const { colors } = s.result.stats;
+    // d'après l'image retouchée : supprimer des pixels se voit tout de suite
+    const image = s.edited?.width ? s.edited : s.result.image;
+    let filled = 0;
+    for (let i = 3; i < image.data.length; i += 4) if (image.data[i]) filled++;
+    status.textContent = `${image.width} × ${image.height} px · ${colors} couleurs · ${filled} pixels pleins${resumeExport(s.tailleExport, s.settings.canvasSize)}`;
   } else status.textContent = s.source ? '' : 'Aucune image';
 
   const cropped = s.original && s.source !== s.original.image;

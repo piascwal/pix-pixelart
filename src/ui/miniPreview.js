@@ -5,6 +5,7 @@
 // réglages sont côte à côte : rien.
 
 import { watch } from './state.js';
+import { resumeExport } from './exporter.js';
 
 const BOX_W = 112;
 const BOX_H = 72;
@@ -40,7 +41,8 @@ export function createMiniPreview(root, store, watched, scrollTarget) {
       ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
     if (bitmap.width && bitmap.height) ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    info.textContent = `${edited.width} × ${edited.height} px${result ? ` · ${result.stats.colors} couleurs` : ''}`;
+    const { tailleExport } = store.get();
+    info.textContent = `${edited.width} × ${edited.height} px${result ? ` · ${result.stats.colors} couleurs` : ''}${resumeExport(tailleExport, settings.canvasSize)}`;
   }
 
   function update() {
@@ -56,7 +58,7 @@ export function createMiniPreview(root, store, watched, scrollTarget) {
     update();
   }, { threshold: [0, 0.1, 0.25, 0.4, 0.5, 0.6, 0.75, 1] }).observe(watched);
 
-  watch(store, ['edited', 'editVersion', 'settings'], () => { if (!root.hidden) drawPreview(); });
+  watch(store, ['edited', 'editVersion', 'settings', 'tailleExport'], () => { if (!root.hidden) drawPreview(); });
   watch(store, ['edited'], update);
   narrow.addEventListener('change', update);
 

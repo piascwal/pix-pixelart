@@ -59,6 +59,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
 });
 
 export const store = createStore({
+  tailleExport: null,  // ce que donnerait l'export principal : { w, h, octets | null } (octets : une fois le PNG encodé)
   exporting: false,    // export du lot en cours
   batch: null,         // lot d'images { items: [{ image, bitmap, name }], active } ou null
   original: null,      // image importée en entier { image, bitmap }

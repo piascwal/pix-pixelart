@@ -7,6 +7,17 @@ import { toHex } from '../core/image.js';
 import { watch } from './state.js';
 import { copyText, toast } from './clipboard.js';
 
+/** Un poids de fichier lisible : 640 o, 18 Ko, 1,2 Mo. */
+export const poids = (octets) =>
+  octets < 1024 ? `${octets} o` : octets < 1048576 ? `${Math.round(octets / 1024)} Ko` : `${(octets / 1048576).toFixed(1).replace('.', ',')} Mo`;
+
+/** Ce que donnerait l'export, à la suite de l'état : « · PNG ≈ 18 Ko », ou « · export 256 × 256 ≈ 5 Ko » avec une toile carrée. */
+export function resumeExport(t, toile) {
+  if (!t) return '';
+  const p = t.octets ? ` ≈ ${poids(t.octets)}` : '';
+  return toile > 0 ? ` · export ${t.w} × ${t.h}${p}` : t.octets ? ` · PNG${p}` : '';
+}
+
 export function toPngBlob(img) {
   const canvas = document.createElement('canvas');
   canvas.width = img.width;
@@ -83,6 +94,7 @@ export function createExporter(root, store, { exportLot } = {}) {
   }
 
   // sous chaque bouton : la taille du fichier qu'il donnerait (dimensions tout de suite, poids du PNG un instant après)
+  const MAX_SURFACE_POIDS = 4.2e6;   // au-delà, on n'encode pas juste pour afficher un poids
   const dims = new Map();
   for (const btn of buttons) {
     const small = document.createElement('small');
@@ -91,9 +103,26 @@ export function createExporter(root, store, { exportLot } = {}) {
     btn.append(small);
     dims.set(btn, small);
   }
-  const poids = (octets) => (octets < 1024 ? `${octets} o` : octets < 1048576 ? `${Math.round(octets / 1024)} Ko` : `${(octets / 1048576).toFixed(1).replace('.', ',')} Mo`);
   let minuteur = 0;
   let jeton = 0;
+
+  // la liste des toiles : chaque taille dit ce qu'elle donnerait (agrandissement du sprite et poids du PNG)
+  const libelles = new Map([...canvasSelect.options].map((o) => [o, o.textContent]));
+  const poidsToile = new Map();
+  const texteToile = (opt, content) => {
+    const n = Number(opt.value);
+    if (!n) return libelles.get(opt);
+    const base = libelles.get(opt);
+    if (!content || n < content) return base;
+    const p = poidsToile.get(n);
+    return `${base} · ×${Math.floor(n / content)}${p ? ` · ${poids(p)}` : ''}`;
+  };
+
+  /** Publie ce que donnerait l'export principal (celui du réglage de taille choisi) : les autres zones de l'écran l'affichent. */
+  function publie(w, h, octets) {
+    const t = store.get().tailleExport;
+    if (!t || t.w !== w || t.h !== h || t.octets !== octets) store.set({ tailleExport: w ? { w, h, octets } : null });
+  }
 
   /** Encode vraiment chaque export possible (au repos, et seulement s'il n'est pas énorme) pour en donner le poids. */
   function programmePoids() {
@@ -101,19 +130,34 @@ export function createExporter(root, store, { exportLot } = {}) {
     const mon = ++jeton;
     minuteur = setTimeout(async () => {
       const { edited, settings, batch } = store.get();
-      if (!edited?.width || batch) return;
+      if (!edited?.width) return;
+      const aplati = (img) => (settings.output === 'magenta' ? flatten(img) : img);
+      const octets = async (img) => (await toPngBlob(aplati(img))).size;
+      // les boutons de la carte (pas pour un lot : un ZIP de tailles variables)
       for (const btn of buttons) {
         if (btn.hidden) continue;
         const f = Number(btn.dataset.export) || 1;
         const surface = settings.canvasSize > 0 ? settings.canvasSize ** 2 : edited.width * edited.height * f * f;
-        if (surface > 4e6) continue;
-        let { image: img } = exportBase(edited, settings.canvasSize, f);
-        if (settings.output === 'magenta') img = flatten(img);
-        const taille = (await toPngBlob(img)).size;
+        if (surface > MAX_SURFACE_POIDS) continue;
+        const { image: img } = exportBase(edited, settings.canvasSize, f);
+        const taille = await octets(img);
         if (mon !== jeton) return;       // un réglage a changé entre-temps
-        const [d, pd] = dims.get(btn).children;
-        d.textContent = `${img.width} × ${img.height}`;
-        pd.textContent = poids(taille);
+        if (!batch) {
+          const [d, pd] = dims.get(btn).children;
+          d.textContent = `${img.width} × ${img.height}`;
+          pd.textContent = poids(taille);
+        }
+        if (btn.dataset.export === 'fit' || btn.dataset.export === '1') publie(img.width, img.height, taille);
+      }
+      // chaque toile carrée de la liste
+      const content = contentSize(edited);
+      for (const opt of canvasSelect.options) {
+        const n = Number(opt.value);
+        if (!n || n < content || n ** 2 > MAX_SURFACE_POIDS) continue;
+        const taille = await octets(fitToCanvas(edited, n).image);
+        if (mon !== jeton) return;
+        poidsToile.set(n, taille);
+        opt.textContent = texteToile(opt, content);
       }
     }, 350);
   }
@@ -130,6 +174,8 @@ export function createExporter(root, store, { exportLot } = {}) {
         return;
       }
     }
+    poidsToile.clear();
+    for (const opt of canvasSelect.options) opt.textContent = texteToile(opt, content);
     canvasSelect.value = String(settings.canvasSize);
     canvasSelect.disabled = !ok;
     const onCanvas = settings.canvasSize > 0;
@@ -147,6 +193,7 @@ export function createExporter(root, store, { exportLot } = {}) {
       d.textContent = ok && (onCanvas || !batch) ? `${w} × ${h}` : '';
       if (!ok || batch) pd.textContent = '';
     }
+    publie(...(!ok ? [0, 0] : onCanvas ? [settings.canvasSize, settings.canvasSize] : [edited.width, edited.height]), null);
     programmePoids();
     const lot = batch ? `Lot de ${batch.items.length} images : export en ZIP. ` : '';
     for (const btn of buttons) if (btn.dataset.export === 'fit') btn.querySelector('span').textContent = batch ? 'Télécharger le ZIP' : 'Télécharger le PNG';
@@ -156,6 +203,6 @@ export function createExporter(root, store, { exportLot } = {}) {
       info.textContent = `${lot}Toile ${settings.canvasSize} × ${settings.canvasSize} px · sprite agrandi ×${scale}`;
     } else info.textContent = `${lot}Taille native : ${edited.width} × ${edited.height} px`;
   }
-  watch(store, ['edited', 'settings', 'batch', 'exporting'], render);
+  watch(store, ['edited', 'editVersion', 'settings', 'batch', 'exporting'], render);
   render();
 }
