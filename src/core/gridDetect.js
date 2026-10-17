@@ -163,8 +163,15 @@ export function detectGrid(img, { minPeriod = MIN_PERIOD, maxPeriod = MAX_PERIOD
   };
 }
 
+/** Nombre maximal de cases sur un axe (largement plus que n'importe quel pixel art). */
+const MAX_CASES = 4096;
+
 /** Bords des cases le long d'un axe, rognés à [0, length]. */
 function axisLines(length, period, offset) {
+  // une case de moins d'un pixel (ou un champ vide, 0, NaN) ferait des millions de cases : on refuse plutôt que de planter
+  if (!(period >= 1) || !Number.isFinite(offset) || length / period > MAX_CASES) {
+    throw new RangeError(`Taille de case impossible (${period} px) : au moins 1 px, et pas plus de ${MAX_CASES} cases.`);
+  }
   const lines = [];
   let k = Math.floor(-offset / period);
   for (;; k++) {

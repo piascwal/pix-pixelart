@@ -32,7 +32,26 @@ function bindNumber(root, store, key) {
     store.set((s) => ({ settings: withTargetGrid({ ...s.settings, [key]: v, ...reset, ...lock }, s.source) }));
   };
   for (const input of inputs) {
-    input.addEventListener('input', () => commit(input.value));
+    input.addEventListener('input', () => {
+      // en pleine saisie, « », « 1 » (avant « 12 ») ou « 0 » ne sont pas des réglages : on attend une valeur dans les bornes
+      const raw = input.value.trim();
+      const v = Number(raw);
+      if (raw === '' || !Number.isFinite(v)) return;
+      if (input.type === 'number' && (v < Number(input.min) || v > Number(input.max))) return;
+      commit(v);
+    });
+    // la saisie est finie (Entrée, Tab, clic ailleurs) : une valeur hors bornes ou vide est ramenée dans les bornes
+    if (input.type === 'number') {
+      input.addEventListener('change', () => {
+        const v = Number(input.value);
+        const min = Number(input.min);
+        const max = Number(input.max);
+        const actuel = store.get().settings[key];
+        const borne = !input.value.trim() || !Number.isFinite(v) ? actuel : Math.min(max, Math.max(min, v));
+        commit(borne);
+        input.value = fmt(borne, Number(input.step) || 1);
+      });
+    }
   }
   return (settings) => {
     for (const input of inputs) {

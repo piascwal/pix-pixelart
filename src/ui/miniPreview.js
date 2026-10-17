@@ -39,7 +39,7 @@ export function createMiniPreview(root, store, watched, scrollTarget) {
       ctx.fillStyle = '#ff00ff';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
-    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    if (bitmap.width && bitmap.height) ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
     info.textContent = `${edited.width} × ${edited.height} px${result ? ` · ${result.stats.colors} couleurs` : ''}`;
   }
 

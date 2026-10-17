@@ -45,3 +45,12 @@ test('gridLines : cases contiguës, cases partielles < ½ ignorées', () => {
   // lignes : [0,4) gardée (4 ≥ 3), [4,10), [10,12) trop petite
   assert.deepEqual(ys, [0, 4, 10]);
 });
+
+test('une taille de case absurde (champ vidé, 0, NaN, trop petite) est refusée au lieu de planter', async () => {
+  const { gridLines } = await import('../src/core/gridDetect.js');
+  for (const period of [0, -3, NaN, 0.01]) {
+    assert.throws(() => gridLines({ period, offsetX: 0, offsetY: 0 }, 400, 300), RangeError, String(period));
+  }
+  assert.throws(() => gridLines({ period: 8, offsetX: NaN, offsetY: 0 }, 400, 300), RangeError);
+  assert.equal(gridLines({ period: 8, offsetX: 0, offsetY: 0 }, 400, 300).xs.length, 51);
+});

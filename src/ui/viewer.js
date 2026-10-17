@@ -134,7 +134,8 @@ export function createViewer(canvases, store, hooks) {
       ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
     }
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(resultBitmap, x0, y0, x1 - x0, y1 - y0);
+    // un résultat vide (rien ne reste après la conversion) : rien à dessiner
+    if (resultBitmap.width && resultBitmap.height) ctx.drawImage(resultBitmap, x0, y0, x1 - x0, y1 - y0);
     // grille fine pour retoucher quand on est assez près
     if (EDIT_TOOLS.has(s.tool) && s.settings.period * cam.scale >= 10) {
       drawGrid(pane, s.result.lines, 'rgba(127, 127, 127, 0.35)', 10);
