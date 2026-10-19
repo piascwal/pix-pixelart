@@ -132,8 +132,7 @@ export function usedColors(img) {
 
 /**
  * Choix manuels sur la palette, par code hexa (« #rrggbb ») :
- *   excluded : couleurs à ne pas utiliser (leurs pixels prennent la couleur
- *              restante la plus proche) ;
+ *   excluded : couleurs à ne pas utiliser : leurs pixels deviennent transparents (comme une gomme) ;
  *   replace  : { '#a': '#b' } la couleur a est remplacée par la couleur b ;
  *              { '#a': 'transparent' } ses pixels deviennent transparents.
  * Un remplacement l'emporte sur une exclusion de la même couleur.
@@ -146,20 +145,16 @@ export const EMPTY_RULES = Object.freeze({ excluded: Object.freeze([]), replace:
  * Les règles qui visent une couleur absente de la palette sont ignorées
  * (la palette change quand on change le nombre de couleurs ou la grille).
  *
- * Ordre : on suit les remplacements (A → B → C) ; si l'on arrive sur une couleur
- * écartée, on prend la couleur non écartée la plus proche, ET on lui applique à
- * son tour ses remplacements (sinon les pixels d'une couleur écartée resteraient
- * sur une couleur pourtant remplacée).
+ * Ordre : on suit les remplacements (A → B → C) ; si l'on arrive sur une couleur écartée
+ * ou sur « transparent », la couleur devient transparente.
  * @returns {Array<[number, number, number] | null>} targets, de même longueur que palette (null : transparent)
  */
 export function resolvePalette(palette, rules = EMPTY_RULES) {
   const excluded = new Set(rules.excluded || []);
   const replace = rules.replace || {};
   const byHex = new Map(palette.map((c) => [toHex(c), c]));
-  let active = palette.filter((c) => !excluded.has(toHex(c)));
-  if (!active.length) { excluded.clear(); active = palette; } // jamais de palette vide
 
-  const resolve = (start, depth = 0) => {
+  const resolve = (start) => {
     let hex = start;
     // suit les remplacements, avec garde-fou contre les cycles
     for (let step = 0; step < palette.length; step++) {
@@ -168,10 +163,8 @@ export function resolvePalette(palette, rules = EMPTY_RULES) {
       if (!next || next === hex || !byHex.has(next)) break;
       hex = next;
     }
-    if (!excluded.has(hex)) return hex;
-    const [r, g, b] = byHex.get(hex);
-    const near = toHex(active[nearestIndex(active, r, g, b)]);
-    return depth < 4 ? resolve(near, depth + 1) : near;
+    // une couleur écartée devient transparente (comme une gomme) ; un remplacement l'emporte sur l'exclusion
+    return excluded.has(hex) ? TRANSPARENT : hex;
   };
   return palette.map((color) => {
     const hex = resolve(toHex(color));

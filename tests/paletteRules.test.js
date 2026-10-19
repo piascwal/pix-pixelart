@@ -17,9 +17,9 @@ test('sans règle : chaque couleur reste elle-même', () => {
   assert.deepEqual(resolvePalette(palette), palette);
 });
 
-test('couleur exclue : ses pixels prennent la couleur restante la plus proche', () => {
+test('couleur exclue : ses pixels deviennent transparents', () => {
   const t = resolvePalette(palette, { excluded: [toHex(DARK_RED)], replace: {} });
-  assert.deepEqual(t[1], RED);
+  assert.equal(t[1], null);
   assert.deepEqual(t[0], RED);
   assert.deepEqual(t[2], BLUE);
 });
@@ -37,21 +37,20 @@ test('remplacements en chaîne, et cycle sans boucle infinie', () => {
   assert.equal(cycle.length, 4);
 });
 
-test('un remplacement l’emporte sur l’exclusion ; cible exclue → plus proche restante', () => {
+test('un remplacement l’emporte sur l’exclusion ; cible exclue → transparent', () => {
   const t = resolvePalette(palette, {
     excluded: [toHex(RED), toHex(WHITE)],
     replace: { [toHex(RED)]: toHex(BLUE) },
   });
   assert.deepEqual(t[0], BLUE);
-  // blanc exclu → une des couleurs restantes (non exclues)
-  assert.ok([DARK_RED, BLUE].some((c) => toHex(c) === toHex(t[3])));
+  assert.equal(t[3], null);
 });
 
-test('règles visant une couleur absente ignorées ; tout exclure garde la palette', () => {
+test('règles visant une couleur absente ignorées ; tout exclure rend tout transparent', () => {
   const ghost = resolvePalette(palette, { excluded: ['#123456'], replace: { '#abcdef': toHex(RED) } });
   assert.deepEqual(ghost, palette);
   const all = resolvePalette(palette, { excluded: palette.map(toHex), replace: {} });
-  assert.deepEqual(all, palette);
+  assert.deepEqual(all, palette.map(() => null));
 });
 
 test('applyPalette avec targets', () => {
@@ -101,7 +100,7 @@ test('cadrage : image vide → image entière', () => {
   assert.deepEqual(focusBounds(createImage(5, 4)), { x0: 0, y0: 0, x1: 5, y1: 4 });
 });
 
-test('couleur écartée dont la plus proche est remplacée : le remplacement s\'applique aussi (bug signalé)', () => {
+test('couleur écartée voisine d\'une couleur remplacée : elle devient transparente, plus de violet', () => {
   const A = [66, 2, 55];      // violet sombre, remplacé par noir
   const A2 = [70, 8, 62];     // violet voisin, écarté : ses pixels vont vers A…
   const BLACK = [7, 3, 6];
@@ -109,14 +108,14 @@ test('couleur écartée dont la plus proche est remplacée : le remplacement s\'
   const pal = [A, A2, BLACK, OTHER];
   const t = resolvePalette(pal, { excluded: [toHex(A2)], replace: { [toHex(A)]: toHex(BLACK) } });
   assert.deepEqual(t[0], BLACK, 'A est remplacée par le noir');
-  assert.deepEqual(t[1], BLACK, '…et A2, écartée, suit : elle ne reste pas violette');
-  for (const c of t) assert.ok(![toHex(A), toHex(A2)].includes(toHex(c)), 'plus aucun violet dans le résultat');
+  assert.equal(t[1], null, '…et A2, écartée, est transparente : elle ne reste pas violette');
+  for (const c of t.filter(Boolean)) assert.ok(![toHex(A), toHex(A2)].includes(toHex(c)), 'plus aucun violet dans le résultat');
 });
 
-test('chaîne mixte : écartée → plus proche remplacée → cible elle-même remplacée', () => {
+test('chaîne : A → B → C remplacés, A2 écartée transparente', () => {
   const [A, A2, B, C] = [[10, 10, 10], [12, 12, 12], [200, 0, 0], [0, 200, 0]];
   const t = resolvePalette([A, A2, B, C], { excluded: [toHex(A2)], replace: { [toHex(A)]: toHex(B), [toHex(B)]: toHex(C) } });
-  assert.deepEqual(t[1], C);
+  assert.equal(t[1], null);
   assert.deepEqual(t[0], C);
 });
 

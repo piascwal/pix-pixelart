@@ -4,7 +4,7 @@
 // sa conversion restent alignés quand on zoome ou qu'on se déplace.
 //
 // Gestes :
-//   souris   glisser = déplacer · molette = zoom (Ctrl + molette si la page défile)
+//   souris   glisser = déplacer · molette = zoom (Ctrl + molette si la page défile) · barre d'espace ou clic du milieu = déplacer, quel que soit l'outil
 //   tactile  sans outil : la page défile normalement
 //            avec un outil : 1 doigt = déplacer (main), dessiner ou tracer le rognage
 //            2 doigts = pincer pour zoomer, glisser pour faire défiler la page
@@ -25,7 +25,8 @@ const APPUI_LONG_TOLERANCE = 8;
  * @param {{ onEditPointer: (phase: 'down'|'move'|'up', cell: {x,y}|null) => void,
  *           onCropPointer: (phase: 'down'|'move'|'up'|'cancel', pt: {x,y}|null) => void,
  *           onInspect: (cell: {x,y}|null) => void,
- *           onToolMenu: (x: number, y: number) => void }} hooks
+ *           onToolMenu: (x: number, y: number) => void,
+ *           cropCursor?: (pt: {x,y,tol}) => string }} hooks
  */
 export function createViewer(canvases, store, hooks) {
   const cam = { scale: 1, cx: 0, cy: 0 };
@@ -192,6 +193,15 @@ export function createViewer(canvases, store, hooks) {
     ctx.lineWidth = 1.5;
     ctx.strokeRect(Math.round(x0) + 0.5, Math.round(y0) + 0.5, Math.round(x1 - x0), Math.round(y1 - y0));
     ctx.setLineDash([]);
+    // poignées : les quatre coins et le milieu des quatre bords, à tirer
+    const mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
+    ctx.fillStyle = '#fff';
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 1;
+    for (const [hx, hy] of [[x0, y0], [mx, y0], [x1, y0], [x0, my], [x1, my], [x0, y1], [mx, y1], [x1, y1]]) {
+      ctx.fillRect(Math.round(hx) - 5, Math.round(hy) - 5, 10, 10);
+      ctx.strokeRect(Math.round(hx) - 4.5, Math.round(hy) - 4.5, 9, 9);
+    }
   }
 
   /** Rectangle de rognage : l'extérieur est assombri. */
@@ -273,6 +283,16 @@ export function createViewer(canvases, store, hooks) {
   let hold = null;        // appui long en attente : { timer, x, y }
   let suspendu = null;    // le doigt qui a ouvert le menu : ignoré jusqu'à ce qu'il se lève
 
+  let spaceDown = false;
+  window.addEventListener('keydown', (e) => {
+    if (e.code !== 'Space' || e.target.closest?.('input, textarea, select, button') || document.body.classList.contains('is-anim')) return;
+    e.preventDefault();
+    spaceDown = true;
+  });
+  window.addEventListener('keyup', (e) => {
+    if (e.code === 'Space') spaceDown = false;
+  });
+
   const stopHold = () => {
     if (hold) clearTimeout(hold.timer);
     hold = null;
@@ -306,7 +326,8 @@ export function createViewer(canvases, store, hooks) {
     };
     const sourcePoint = (e) => {
       const [sx, sy] = toSource(pane, ...localOf(e.clientX, e.clientY));
-      return { x: sx, y: sy };
+      // tol : la prise sur un bord de la zone de rognage, 8 px d'écran à la souris, 18 au doigt
+      return { x: sx, y: sy, tol: (e.pointerType === 'mouse' ? 8 : 18) / cam.scale };
     };
 
     function endGesture() {
@@ -353,7 +374,8 @@ export function createViewer(canvases, store, hooks) {
         pinch = { dist: Math.hypot(a.x - b.x, a.y - b.y), mid: [(a.x + b.x) / 2, (a.y + b.y) / 2] };
         return;
       }
-      if (pointers.size > 2 || e.button !== 0) return;
+      // clic du milieu ou barre d'espace tenue : on déplace l'image, sans toucher à l'outil
+      if (pointers.size > 2 || e.button !== 0 || spaceDown) return;
       const { tool } = store.get();
       if (tool === 'none' && e.pointerType !== 'mouse') return;
       if (pane.kind === 'result' && EDIT_TOOLS.has(tool)) {
@@ -369,7 +391,13 @@ export function createViewer(canvases, store, hooks) {
 
     canvas.addEventListener('pointermove', (e) => {
       const prev = pointers.get(e.pointerId);
-      if (!prev) return;
+      if (!prev) {
+        // survol à la souris : la flèche du bord (ou de la zone) qu'on attraperait
+        if (e.pointerType === 'mouse' && pane.kind === 'original' && hooks.cropCursor) {
+          canvas.style.cursor = store.get().tool === 'crop' && !spaceDown ? hooks.cropCursor(sourcePoint(e)) : '';
+        }
+        return;
+      }
       const cur = { x: e.clientX, y: e.clientY };
       pointers.set(e.pointerId, cur);
       if (hold && Math.hypot(cur.x - hold.x, cur.y - hold.y) > APPUI_LONG_TOLERANCE) stopHold();
@@ -438,6 +466,7 @@ export function createViewer(canvases, store, hooks) {
   });
   watch(store, ['edited', 'editVersion'], () => { updateResultBitmap(); redraw(); });
   watch(store, ['settings', 'view', 'tool', 'cropSel', 'pixelSel'], redraw);
+  watch(store, ['tool'], () => { for (const p of panes) p.canvas.style.cursor = ''; });
   watch(store, ['view'], () => requestAnimationFrame(resize));
 
   resize();

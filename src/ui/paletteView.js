@@ -1,5 +1,5 @@
 // Nuancier : clic sur une couleur → sa fiche (code hexa, copier), puis :
-//   - ne pas l'utiliser : ses pixels prennent la couleur restante la plus proche ;
+//   - ne pas l'utiliser : ses pixels deviennent transparents (comme une gomme) ;
 //   - la remplacer par une autre couleur de la palette ;
 //   - dessiner avec (crayon).
 // Les choix sont des règles dans settings.paletteRules (par code hexa) : la
@@ -115,7 +115,7 @@ export function createPaletteView(container, detail, store) {
         b.classList.add(valid ? 'is-target' : 'is-dimmed');
         b.disabled = !valid && hex !== paletteSel;
       }
-      const status = excluded ? ', non utilisée' : target ? `, remplacée par ${target}` : '';
+      const status = excluded ? ', transparente' : target ? `, remplacée par ${target}` : '';
       b.title = `${hex}${status}`;
       b.setAttribute('aria-label', `Couleur ${hex}${status}`);
       b.setAttribute('aria-pressed', String(hex === paletteSel));
@@ -153,7 +153,7 @@ export function createPaletteView(container, detail, store) {
     if (target) {
       status.append('Remplacée par ', miniSwatch(target), target === TRANSPARENT ? ' transparent' : ` ${target}`);
     } else if (excluded) {
-      status.textContent = 'Non utilisée : ses pixels prennent la couleur restante la plus proche.';
+      status.textContent = 'Transparente : tous ses pixels sont effacés.';
     } else {
       status.textContent = 'Utilisée dans le résultat.';
     }

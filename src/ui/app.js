@@ -178,7 +178,7 @@ const menuOutils = createToolMenu(store);
 const viewer = createViewer(
   { original: $('#view-original'), result: $('#view-result') },
   store,
-  { onEditPointer: editor.onEditPointer, onCropPointer: cropper.onCropPointer, onInspect: inspector.select, onToolMenu: menuOutils.ouvre },
+  { onEditPointer: editor.onEditPointer, onCropPointer: cropper.onCropPointer, onInspect: inspector.select, onToolMenu: menuOutils.ouvre, cropCursor: cropper.cursor },
 );
 createMiniPreview($('#mini-preview'), store, $('.pane-result'), $('#stage'));
 createControls($('#controls'), store);
