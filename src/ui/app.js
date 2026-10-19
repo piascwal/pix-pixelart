@@ -15,6 +15,7 @@ import { createToolMenu } from './menuOutils.js';
 import { createMiniPreview } from './miniPreview.js';
 import { createExporter, resumeExport } from './exporter.js';
 import { setupTooltips } from './tooltips.js';
+import { toast } from './clipboard.js';
 import { setupAnimation } from './anim/animMode.js';
 import { createBatch } from './batch.js';
 
@@ -68,10 +69,18 @@ async function work(image, bitmap, grilleImposee = null) {
           ? { ...s.settings, ...grilleImposee }
           : s.settings.gridLocked && s.settings.gridMode === 'detect'
             ? s.settings
-            : { ...s.settings, period: grid.period, offsetX: grid.offsetX, offsetY: grid.offsetY },
+            : {
+                ...s.settings,
+                period: grid.period,
+                offsetX: grid.offsetX,
+                offsetY: grid.offsetY,
+                // pixel art déjà en pixels réels : on garde toutes ses couleurs et on ne le « nettoie » pas
+                ...(grid.native ? { colors: Math.min(256, Math.max(2, grid.colorCount)), cleanup: false } : {}),
+              },
         image,
       ),
     }));
+    if (grid.native && !grilleImposee) toast(`Pixel art déjà en pixels réels : ${grid.colorCount} couleurs gardées, nettoyage coupé`);
   } catch (err) {
     store.set({ error: err.message, busy: false });
   }

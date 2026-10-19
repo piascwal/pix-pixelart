@@ -54,3 +54,24 @@ test('une taille de case absurde (champ vidé, 0, NaN, trop petite) est refusée
   assert.throws(() => gridLines({ period: 8, offsetX: NaN, offsetY: 0 }, 400, 300), RangeError);
   assert.equal(gridLines({ period: 8, offsetX: 0, offsetY: 0 }, 400, 300).xs.length, 51);
 });
+
+test('pixel art déjà en pixels réels : reconnu (1 px par case) ; agrandi ou bruité : non', async () => {
+  const { nativePixelArt } = await import('../src/core/gridDetect.js');
+  const { createImage } = await import('../src/core/image.js');
+  const natif = createImage(40, 16);
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 40; x++) {
+    const c = (x * 7 + y * 3) % 5 < 2 ? [150, 90, 40] : (x + y) % 3 ? [110, 60, 30] : [200, 140, 80];
+    natif.data.set([...c, 255], (y * 40 + x) * 4);
+  }
+  assert.equal(nativePixelArt(natif), 3);
+  assert.equal(detectGrid(natif).period, 1);
+  assert.equal(detectGrid(natif).native, true);
+  // le même agrandi ×4 : pas du natif (la détection ordinaire reprend la main)
+  const grand = createImage(160, 64);
+  for (let y = 0; y < 64; y++) for (let x = 0; x < 160; x++) grand.data.set(natif.data.subarray(((y >> 2) * 40 + (x >> 2)) * 4, ((y >> 2) * 40 + (x >> 2)) * 4 + 4), (y * 160 + x) * 4);
+  assert.equal(nativePixelArt(grand), null);
+  // bruité : des centaines de couleurs
+  const bruit = createImage(40, 16);
+  for (let i = 0; i < 40 * 16; i++) bruit.data.set([(i * 37) % 256, (i * 91) % 256, (i * 53) % 256, 255], i * 4);
+  assert.equal(nativePixelArt(bruit), null);
+});
