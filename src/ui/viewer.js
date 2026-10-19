@@ -193,14 +193,14 @@ export function createViewer(canvases, store, hooks) {
     ctx.lineWidth = 1.5;
     ctx.strokeRect(Math.round(x0) + 0.5, Math.round(y0) + 0.5, Math.round(x1 - x0), Math.round(y1 - y0));
     ctx.setLineDash([]);
-    // poignées : les quatre coins et le milieu des quatre bords, à tirer
+    // poignées : les quatre coins et le milieu des quatre bords, seuls à changer la zone
     const mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
     ctx.fillStyle = '#fff';
     ctx.strokeStyle = '#000';
     ctx.lineWidth = 1;
     for (const [hx, hy] of [[x0, y0], [mx, y0], [x1, y0], [x0, my], [x1, my], [x0, y1], [mx, y1], [x1, y1]]) {
-      ctx.fillRect(Math.round(hx) - 5, Math.round(hy) - 5, 10, 10);
-      ctx.strokeRect(Math.round(hx) - 4.5, Math.round(hy) - 4.5, 9, 9);
+      ctx.fillRect(Math.round(hx) - 7, Math.round(hy) - 7, 14, 14);
+      ctx.strokeRect(Math.round(hx) - 6.5, Math.round(hy) - 6.5, 13, 13);
     }
   }
 
@@ -326,8 +326,8 @@ export function createViewer(canvases, store, hooks) {
     };
     const sourcePoint = (e) => {
       const [sx, sy] = toSource(pane, ...localOf(e.clientX, e.clientY));
-      // tol : la prise sur un bord de la zone de rognage, 8 px d'écran à la souris, 18 au doigt
-      return { x: sx, y: sy, tol: (e.pointerType === 'mouse' ? 8 : 18) / cam.scale };
+      // tol : la prise sur une poignée de la zone de rognage, 14 px d'écran à la souris, 24 au doigt
+      return { x: sx, y: sy, tol: (e.pointerType === 'mouse' ? 14 : 24) / cam.scale };
     };
 
     function endGesture() {
@@ -382,8 +382,8 @@ export function createViewer(canvases, store, hooks) {
         gesture = 'edit';
         hooks.onEditPointer('down', cellAt(pane, ...localOf(e.clientX, e.clientY)));
       } else if (pane.kind === 'original' && tool === 'crop') {
-        gesture = 'crop';
-        hooks.onCropPointer('down', sourcePoint(e));
+        // seules les poignées de la zone agissent sur le rognage ; ailleurs, glisser déplace l'image (la main)
+        if (hooks.onCropPointer('down', sourcePoint(e))) gesture = 'crop';
       } else if (tool === 'inspect') {
         tap = { x: e.clientX, y: e.clientY };
       }

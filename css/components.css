@@ -147,7 +147,7 @@ body:not(.has-image) .needs-image { visibility: hidden; }
 .stage[data-tool="pencil"] .pane-result canvas,
 .stage[data-tool="eraser"] .pane-result canvas,
 .stage[data-tool="picker"] .pane-result canvas,
-.stage[data-tool="crop"] .pane-original canvas { cursor: crosshair; }
+.stage[data-tool="crop"] .pane-original canvas { cursor: grab; }
 .stage[data-tool="inspect"] .pane canvas { cursor: pointer; }
 .pane figcaption {
   position: absolute;

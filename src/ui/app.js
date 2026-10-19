@@ -46,7 +46,7 @@ worker.onerror = (e) => store.set({ error: `Erreur du traitement : ${e.message |
 /* ------------------------------------------------- import & analyse --- */
 
 /** Fait de `image` l'image de travail : analyse (grille + fond), puis conversion. */
-async function work(image, bitmap) {
+async function work(image, bitmap, grilleImposee = null) {
   store.set((s) => ({
     source: image, sourceBitmap: bitmap,
     detected: null, result: null, cropSel: null, error: '', busy: true,
@@ -62,10 +62,13 @@ async function work(image, bitmap) {
       detected: { grid, background },
       // grille détectée, ou calculée depuis la taille voulue si on est en mode « taille choisie »
       // lot : une grille réglée à la main reste en place d'une image à l'autre
+      // rognage : la grille de l'image d'origine, décalée de la zone, plutôt qu'une nouvelle détection sur un bout d'image
       settings: withTargetGrid(
-        s.settings.gridLocked && s.settings.gridMode === 'detect'
-          ? s.settings
-          : { ...s.settings, period: grid.period, offsetX: grid.offsetX, offsetY: grid.offsetY },
+        grilleImposee
+          ? { ...s.settings, ...grilleImposee }
+          : s.settings.gridLocked && s.settings.gridMode === 'detect'
+            ? s.settings
+            : { ...s.settings, period: grid.period, offsetX: grid.offsetX, offsetY: grid.offsetY },
         image,
       ),
     }));
@@ -103,14 +106,20 @@ $('#pick-another').addEventListener('click', () => $('#file').click());
 /* ----------------------------------------------------------- rognage --- */
 
 function applyCrop({ x, y, w, h }) {
-  const { source } = store.get();
+  const { source, settings } = store.get();
   const cropped = crop(source, x, y, w, h);
+  // la zone est calée sur les cases : la grille de l'original, décalée du coin de la zone, tombe pile sur ses cases
+  const modulo = (v, k) => ((v % k) + k) % k;
+  const grille =
+    settings.gridMode === 'detect'
+      ? { period: settings.period, offsetX: modulo(settings.offsetX - x, settings.period), offsetY: modulo(settings.offsetY - y, settings.period) }
+      : null;
   const canvas = document.createElement('canvas');
   canvas.width = w;
   canvas.height = h;
   canvas.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(cropped.data), w, h), 0, 0);
   store.set({ tool: 'none' });
-  work(cropped, canvas);
+  work(cropped, canvas, grille);
 }
 
 function restoreOriginal() {
@@ -172,6 +181,10 @@ const cropper = createCropper(store, {
   actions: $('#crop-actions'),
   onApply: applyCrop,
   onReset: restoreOriginal,
+  grille: () => {
+    const { settings, source } = store.get();
+    return source && settings.gridMode === 'detect' ? { period: settings.period, offsetX: settings.offsetX, offsetY: settings.offsetY } : null;
+  },
 });
 const inspector = createInspector($('#pixel-info'), store, editor);
 const menuOutils = createToolMenu(store);
@@ -249,7 +262,7 @@ function render() {
 
   const hint = $('#hint');
   hint.textContent = s.tool === 'crop' && s.cropSel
-    ? `Sélection : ${s.cropSel.w} × ${s.cropSel.h} px — « Rogner ici » pour valider.`
+    ? `Sélection : ${s.cropSel.w} × ${s.cropSel.h} px${s.settings.gridMode === 'detect' ? ` (${Math.round(s.cropSel.w / s.settings.period)} × ${Math.round(s.cropSel.h / s.settings.period)} cases)` : ''} — « Rogner ici » pour valider.`
     : '';
 
   const status = $('#status');
