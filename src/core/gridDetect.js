@@ -9,7 +9,7 @@
 // chaîne ne voit que des listes de bords de cases (gridLines) : une détection
 // future de grilles qui dérivent n'aura qu'à produire des bords irréguliers.
 
-export const MIN_PERIOD = 3; // le plus petit agrandissement détecté ; le natif (1 px par case) a sa propre détection
+export const MIN_PERIOD = 3;
 export const MAX_PERIOD = 20;
 
 /**
@@ -147,48 +147,7 @@ export function bestPeriod(energy, integer) {
  * Détection complète.
  * @returns {{ period: number, offsetX: number, offsetY: number, confidence: number, peaks: Array }}
  */
-/**
- * Un pixel art déjà en pixels réels (une case = un pixel) : peu de couleurs exactes, et beaucoup de séries d'un seul pixel
- * de large. Un agrandi (cases de 2 px et plus) n'a aucune série d'un pixel, et une image bruitée (JPEG, faux pixel art
- * d'IA) a des milliers de couleurs : ni l'un ni l'autre n'est pris pour du natif.
- * @returns {number | null} le nombre de couleurs exactes, ou null
- */
-export function nativePixelArt(img) {
-  const { width: w, height: h, data: d } = img;
-  const couleurs = new Set();
-  let opaques = 0;
-  for (let i = 0; i < d.length; i += 4) {
-    if (!d[i + 3]) continue;
-    opaques++;
-    couleurs.add(((d[i] << 24) | (d[i + 1] << 16) | (d[i + 2] << 8) | d[i + 3]) >>> 0);
-    if (couleurs.size > 256) return null;
-  }
-  if (opaques < 64 || couleurs.size / opaques > 0.2) return null;
-  let series = 0;
-  let uns = 0;
-  const compte = (n, m, indice) => {
-    for (let a = 0; a < n; a++) {
-      let k = -1;
-      let longueur = 0;
-      for (let b = 0; b <= m; b++) {
-        const i = b < m ? indice(a, b) * 4 : -1;
-        const present = i >= 0 && d[i + 3] > 0;
-        const meme = present && longueur > 0 && d[i] === d[k] && d[i + 1] === d[k + 1] && d[i + 2] === d[k + 2] && d[i + 3] === d[k + 3];
-        if (meme) { longueur++; continue; }
-        if (longueur > 0) { series++; if (longueur === 1) uns++; }
-        longueur = present ? 1 : 0;
-        k = present ? i : -1;
-      }
-    }
-  };
-  compte(h, w, (y, x) => y * w + x);
-  compte(w, h, (x, y) => y * w + x);
-  return series && uns / series >= 0.25 ? couleurs.size : null;
-}
-
 export function detectGrid(img, { minPeriod = MIN_PERIOD, maxPeriod = MAX_PERIOD } = {}) {
-  const natif = nativePixelArt(img);
-  if (natif) return { period: 1, offsetX: 0, offsetY: 0, confidence: 1, peaks: [], native: true, colorCount: natif };
   const energy = gradientEnergy(img);
   const coarse = integerPeriod(energy, minPeriod, maxPeriod);
   if (!coarse.period) {

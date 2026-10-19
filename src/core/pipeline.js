@@ -27,10 +27,7 @@ export const DEFAULT_OPTIONS = Object.freeze({
 });
 
 export function analyze(img) {
-  const grid = detectGrid(img);
-  // pixel art déjà en pixels réels : sa transparence est déjà là, on ne fait pas passer une de ses couleurs pour le fond
-  const background = grid.native ? { r: 0, g: 0, b: 0, transparent: true } : detectBackground(img);
-  return { grid, background };
+  return { grid: detectGrid(img), background: detectBackground(img) };
 }
 
 /**
