@@ -81,5 +81,7 @@ export const store = createStore({
   paletteSel: null,    // couleur du nuancier sélectionnée (#rrggbb)
   paletteReplacing: false, // on attend le clic sur la couleur de remplacement
   color: null,         // [r, g, b] couleur du crayon
+  brush: 1,            // crayon et gomme : côté du pinceau, en cases (1 à 3)
+  eraseOnly: null,     // gomme ciblée : [r, g, b], seules les cases de cette couleur sont gommées
   view: { mode: 'side', grid: true },
 });

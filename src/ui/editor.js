@@ -22,13 +22,14 @@ export function createEditor(store) {
     publishHistory();
   });
 
-  function paint(cell) {
-    const { edited, tool, color } = store.get();
-    if (!edited || !cell) return false;
-    const i = (cell.y * edited.width + cell.x) * 4;
+  /** Une case du pinceau. Gomme ciblée : seules les cases de la couleur choisie sont gommées. */
+  function paintOne(edited, x, y, { tool, color, eraseOnly }) {
+    if (x < 0 || y < 0 || x >= edited.width || y >= edited.height) return false;
+    const i = (y * edited.width + x) * 4;
     const d = edited.data;
     if (tool === 'eraser') {
       if (d[i + 3] === 0) return false;
+      if (eraseOnly && (d[i] !== eraseOnly[0] || d[i + 1] !== eraseOnly[1] || d[i + 2] !== eraseOnly[2])) return false;
       d[i + 3] = 0;
       return true;
     }
@@ -38,6 +39,18 @@ export function createEditor(store) {
       return true;
     }
     return false;
+  }
+
+  /** Le pinceau (un carré de `brush` cases) posé sur la case visée. */
+  function paint(cell) {
+    const s = store.get();
+    if (!s.edited || !cell) return false;
+    const r0 = -Math.floor((s.brush - 1) / 2);
+    let changed = false;
+    for (let dy = r0; dy < r0 + s.brush; dy++) {
+      for (let dx = r0; dx < r0 + s.brush; dx++) changed = paintOne(s.edited, cell.x + dx, cell.y + dy, s) || changed;
+    }
+    return changed;
   }
 
   /** Toutes les cases entre a et b (Bresenham) : un geste rapide ne laisse pas de trous. */

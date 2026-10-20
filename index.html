@@ -28,8 +28,13 @@
         <button type="button" class="icon-btn" data-tool="move" data-tip="Main : déplacer l'image" aria-label="Main : déplacer l'image"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#hand"/></svg></button>
         <button type="button" class="icon-btn" data-tool="inspect" data-tip="Pointeur : toucher une case pour voir sa couleur, la supprimer ou la remplacer" aria-label="Pointeur"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#mouse-pointer-2"/></svg></button>
         <button type="button" class="icon-btn" data-tool="pencil" data-tip="Crayon : dessiner une case avec la couleur choisie" aria-label="Crayon"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#pencil"/></svg><span class="current-color" id="current-color"></span></button>
-        <button type="button" class="icon-btn" data-tool="eraser" data-tip="Gomme : rendre une case transparente" aria-label="Gomme"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#eraser"/></svg></button>
+        <button type="button" class="icon-btn" data-tool="eraser" data-tip="Gomme : rendre une case transparente" aria-label="Gomme"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#eraser"/></svg><span class="current-color" id="erase-color" hidden></span></button>
         <button type="button" class="icon-btn" data-tool="picker" data-tip="Pipette : prendre la couleur d'une case" aria-label="Pipette"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#pipette"/></svg></button>
+        <div class="segmented" id="brush-size" role="group" aria-label="Taille du pinceau" hidden>
+          <button type="button" data-brush="1" aria-label="Pinceau d'une case">1</button>
+          <button type="button" data-brush="2" aria-label="Pinceau de 2 cases">2</button>
+          <button type="button" data-brush="3" aria-label="Pinceau de 3 cases">3</button>
+        </div>
         <span class="sep"></span>
         <button type="button" class="icon-btn" id="undo" data-tip="Annuler (Ctrl+Z)" aria-label="Annuler"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#undo-2"/></svg></button>
         <button type="button" class="icon-btn" id="redo" data-tip="Rétablir (Ctrl+Y)" aria-label="Rétablir"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#redo-2"/></svg></button>

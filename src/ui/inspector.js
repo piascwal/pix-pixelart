@@ -138,6 +138,11 @@ export function createInspector(container, store, editor) {
     actions.append(button(empty ? 'Colorier avec…' : 'Remplacer par…', () => { choosing = true; render(); },
       { primary: true, iconName: 'replace' }));
     if (!empty) {
+      // pour un contour qui partage sa couleur avec le personnage : gommer au pinceau, cette couleur seulement
+      actions.append(button('Gomme ciblée', () => store.set({ eraseOnly: rgb, tool: 'eraser', pixelSel: null }), {
+        iconName: 'eraser',
+        title: 'Gommer cette couleur au pinceau : seules les cases de cette couleur sous le pinceau disparaissent',
+      }));
       actions.append(button('Supprimer', () => { if (all) apply(rgb, pixelSel, null); else editor.setPixel(pixelSel, null); },
         { iconName: 'trash-2' }));
     }

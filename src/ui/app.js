@@ -227,6 +227,12 @@ for (const btn of document.querySelectorAll('button[data-mode]')) {
   btn.addEventListener('click', () => store.set((s) => ({ view: { ...s.view, mode: btn.dataset.mode } })));
 }
 
+// la gomme ciblée ne vaut que pour la gomme ; la taille du pinceau ne sert qu'au crayon et à la gomme
+watch(store, ['tool'], (s) => { if (s.tool !== 'eraser' && s.eraseOnly) store.set({ eraseOnly: null }); });
+for (const btn of document.querySelectorAll('[data-brush]')) {
+  btn.addEventListener('click', () => store.set({ brush: Number(btn.dataset.brush) }));
+}
+
 // on ne rogne que sur l'original : on l'affiche si besoin
 watch(store, ['tool'], (s) => {
   if (s.tool === 'crop' && s.view.mode === 'result') store.set({ view: { ...s.view, mode: 'side' } });
@@ -258,6 +264,11 @@ function render() {
   $('#undo').disabled = !s.history.undo;
   $('#redo').disabled = !s.history.redo;
   $('#show-grid').checked = s.view.grid;
+  const cible = $('#erase-color');
+  cible.hidden = !s.eraseOnly;
+  if (s.eraseOnly) cible.style.background = `rgb(${s.eraseOnly.join(',')})`;
+  $('#brush-size').hidden = s.tool !== 'pencil' && s.tool !== 'eraser';
+  for (const btn of document.querySelectorAll('[data-brush]')) btn.setAttribute('aria-pressed', String(Number(btn.dataset.brush) === s.brush));
   $('#current-color').style.background = s.color ? `rgb(${s.color.join(',')})` : 'transparent';
 
   const hint = $('#hint');
