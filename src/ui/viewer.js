@@ -31,6 +31,9 @@ const APPUI_LONG_TOLERANCE = 8;
 export function createViewer(canvases, store, hooks) {
   const cam = { scale: 1, cx: 0, cy: 0 };
   const resultBitmap = document.createElement('canvas');
+  // le résultat à la résolution de la source : chaque case remplit exactement la zone qu'elle a échantillonnée
+  const resultExact = document.createElement('canvas');
+  const MAX_EXACT = 4e6;
   let frame = 0;
 
   const panes = Object.entries(canvases).map(([kind, canvas]) => ({
@@ -136,7 +139,8 @@ export function createViewer(canvases, store, hooks) {
     }
     ctx.imageSmoothingEnabled = false;
     // un résultat vide (rien ne reste après la conversion) : rien à dessiner
-    if (resultBitmap.width && resultBitmap.height) ctx.drawImage(resultBitmap, x0, y0, x1 - x0, y1 - y0);
+    const exact = resultExact.width && resultExact.height;
+    if (exact || (resultBitmap.width && resultBitmap.height)) ctx.drawImage(exact ? resultExact : resultBitmap, x0, y0, x1 - x0, y1 - y0);
     // grille fine pour retoucher quand on est assez près
     if (EDIT_TOOLS.has(s.tool) && s.settings.period * cam.scale >= 10) {
       drawGrid(pane, s.result.lines, 'rgba(127, 127, 127, 0.35)', 10);
@@ -223,6 +227,39 @@ export function createViewer(canvases, store, hooks) {
     ctx.setLineDash([]);
   }
 
+  /**
+   * Les bords des cases sont des pixels entiers de la source (9 px, puis 10, puis 10...) : étirer le résultat d'un bloc
+   * les décalerait jusqu'à une fraction de case des lignes de grille et des couleurs de l'original (cases « à moitié
+   * remplies » en gros plan). On remplit donc chaque case exactement entre ses deux lignes. Au-delà de MAX_EXACT pixels
+   * (énorme image), on garde l'étirement d'un bloc, plus léger.
+   */
+  function rebuildExact(edited) {
+    const { result } = store.get();
+    resultExact.width = resultExact.height = 0;
+    if (!result || !edited.width || !edited.height) return;
+    const { xs, ys } = result.lines;
+    if (xs.length !== edited.width + 1 || ys.length !== edited.height + 1) return;
+    const W = xs[xs.length - 1] - xs[0];
+    const H = ys[ys.length - 1] - ys[0];
+    if (W < 1 || H < 1 || W * H > MAX_EXACT) return;
+    resultExact.width = W;
+    resultExact.height = H;
+    const out = new ImageData(W, H);
+    const dst = new Uint32Array(out.data.buffer);
+    const src = new Uint32Array(edited.data.buffer, edited.data.byteOffset, edited.width * edited.height);
+    for (let cy = 0; cy < edited.height; cy++) {
+      const ya = ys[cy] - ys[0];
+      const yb = ys[cy + 1] - ys[0];
+      for (let cx = 0; cx < edited.width; cx++) {
+        const v = src[cy * edited.width + cx];
+        const xa = xs[cx] - xs[0];
+        const xb = xs[cx + 1] - xs[0];
+        for (let y = ya; y < yb; y++) dst.fill(v, y * W + xa, y * W + xb);
+      }
+    }
+    resultExact.getContext('2d').putImageData(out, 0, 0);
+  }
+
   function updateResultBitmap() {
     const { edited } = store.get();
     if (!edited) return;
@@ -231,6 +268,7 @@ export function createViewer(canvases, store, hooks) {
     if (edited.width && edited.height) {
       resultBitmap.getContext('2d').putImageData(new ImageData(edited.data, edited.width, edited.height), 0, 0);
     }
+    rebuildExact(edited);
   }
 
   /* ------------------------------------------------------------ caméra -- */
