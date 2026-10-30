@@ -157,6 +157,25 @@ function jointColor(base, rig, part, radius = 3) {
   return best && best.split(',').map(Number);
 }
 
+/**
+ * Rayon du disque d'articulation : la demi-épaisseur du membre à son pivot (un bras épais
+ * laisse un trou plus grand en tournant qu'un bras fin), entre 1,6 et 4 px. Mesurée par
+ * le nombre de pixels de la pièce à moins de 5 px du pivot (un demi-disque : n ≈ πr²/2).
+ */
+function limbRadius(base, rig, part, reach = 5) {
+  const { width: w } = base;
+  let n = 0;
+  for (let y = Math.floor(part.pivot.y - reach); y <= part.pivot.y + reach; y++) {
+    for (let x = Math.floor(part.pivot.x - reach); x <= part.pivot.x + reach; x++) {
+      if (x < 0 || y < 0 || x >= w || y >= base.height) continue;
+      if ((x + 0.5 - part.pivot.x) ** 2 + (y + 0.5 - part.pivot.y) ** 2 > reach * reach) continue;
+      const i = y * w + x;
+      if (rig.labels[i] === part.id && base.data[i * 4 + 3]) n++;
+    }
+  }
+  return Math.min(4, Math.sqrt((2 * n) / Math.PI) * 0.5);
+}
+
 export const marginFor = (rig) => Math.max(8, Math.round(Math.max(rig.width, rig.height) * 0.3));
 
 /**
@@ -176,13 +195,14 @@ export function composeFrame(base, rig, pose, { jointRadius = 1.6 } = {}) {
     const part = byId.get(id);
     if (!part) continue;
     const w = world.get(id);
-    const img = id === BODY ? bodyImage(base, rig) : pieceImage(base, rig, id);
+    // un bras qui portait un objet devant le torse (un ballon) laisse un grand vide : on rebouche jusqu'au quart du sprite
+    const img = id === BODY ? bodyImage(base, rig, { maxGap: Math.max(8, Math.round(Math.max(base.width, base.height) * 0.25)) }) : pieceImage(base, rig, id);
     const dest = apply(w.m, part.pivot);
 
     if (id !== BODY && !isRest(pose[id])) {
       const color = jointColor(base, rig, part);
       if (color) {
-        const r = jointRadius;
+        const r = Math.max(jointRadius, limbRadius(base, rig, part));
         for (let y = Math.floor(dest.y - r); y <= dest.y + r; y++) {
           for (let x = Math.floor(dest.x - r); x <= dest.x + r; x++) {
             if (x < 0 || y < 0 || x >= out.width || y >= out.height) continue;

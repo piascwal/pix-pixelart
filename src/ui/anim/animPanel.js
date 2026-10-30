@@ -3,6 +3,8 @@
 // retouche, images (vignettes, lecture, ajout, suppression), export.
 
 import { BODY, spriteSheet, commonBounds } from '../../core/rig.js';
+import { gameSheet } from '../../core/project.js';
+import { ACTIONS, ACTION_INFO } from '../../core/actions.js';
 import { usedColors } from '../../core/palette.js';
 import { toHex } from '../../core/image.js';
 import { upscale, flatten } from '../../core/upscale.js';
@@ -14,7 +16,7 @@ import { icon } from '../icons.js';
 import { toast } from '../clipboard.js';
 import {
   anim, commit, undoLast, redoLast, addPart, removePart, updatePart, movePart, setPose,
-  addFrame, removeFrame, clearEdits, frameImage, partColor, interpolateFrames, generateWalk, completeCut, completePose, addHumanSkeleton, autoSkin, cleanIslands,
+  addFrame, removeFrame, clearEdits, frameImage, partColor, interpolateFrames, generateAction, switchClip, allClips, saveProject, completeCut, completePose, addHumanSkeleton, autoSkin, cleanIslands,
 } from './animStore.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -174,8 +176,14 @@ export function createAnimPanel(root, mainStore) {
   });
   $('#anim-onion', root).addEventListener('click', () => anim.set((s) => ({ onion: !s.onion })));
   for (const b of root.querySelectorAll('[data-walk]')) b.addEventListener('click', () => anim.set({ walkStyle: b.dataset.walk }));
+  for (const b of root.querySelectorAll('[data-clip]')) b.addEventListener('click', () => switchClip(b.dataset.clip));
+  const polish = $('#anim-polish', root);
+  polish.addEventListener('change', () => anim.set({ polish: polish.checked }));
+  $('#anim-save-project', root).addEventListener('click', () => {
+    download(new Blob([saveProject()], { type: 'application/json' }), `${baseName()}-projet.json`);
+  });
   $('#anim-walk', root).addEventListener('click', () => {
-    if (!generateWalk(anim.get().walkStyle)) toast('Aucun bras ni jambe reconnu : vérifiez que chaque membre est une pièce avec son pivot (hors tête).');
+    if (!generateAction(anim.get().walkStyle)) toast('Aucun bras ni jambe reconnu : vérifiez que chaque membre est une pièce avec son pivot (hors tête).');
   });
   $('#anim-complete', root).addEventListener('click', () => {
     if (!completeCut()) toast('Rien à ajouter : les pièces touchent déjà tous leurs pixels reliés (ou aucun pivot n\u2019est placé).');
@@ -227,11 +235,25 @@ export function createAnimPanel(root, mainStore) {
   });
 
   /* -------------------------------------------------------------- export */
+  const baseName = () => (mainStore.get().sourceName || 'sprite').replace(/\.[a-z0-9]+$/i, '').replace(/-projet$/, '');
   for (const b of root.querySelectorAll('[data-anim-export]')) {
     b.addEventListener('click', async () => {
       const s = anim.get();
+      if (b.dataset.animExport === 'jeu') {
+        // une ligne par animation travaillée, dans l'ordre de ACTIONS (puis les autres)
+        const clips = allClips();
+        const names = [...ACTIONS.filter((n) => clips[n]), ...Object.keys(clips).filter((n) => !ACTIONS.includes(n))];
+        const rows = names
+          .filter((n) => clips[n].some((f) => Object.keys(f.pose).length || f.edits.size) || n === s.clip)
+          .map((n) => ({ name: n, images: clips[n].map((f) => frameImage(f).image), fps: n === s.clip ? s.fps : ACTION_INFO[n]?.fps ?? s.fps }));
+        const { image, meta } = gameSheet(rows);
+        const out = mainStore.get().settings.output === 'magenta' ? flatten(image) : image;
+        download(await toPngBlob(out), `${baseName()}-jeu.png`);
+        download(new Blob([JSON.stringify({ ...meta, regard: s.walkStyle }, null, 2)], { type: 'application/json' }), `${baseName()}-jeu.json`);
+        return;
+      }
       const sheet = spriteSheet(s.frames.map((f) => frameImage(f).image));
-      const name = (mainStore.get().sourceName || 'sprite').replace(/\.[a-z0-9]+$/i, '') + '-animation';
+      const name = baseName() + '-animation';
       if (b.dataset.animExport === 'json') {
         const meta = {
           frameWidth: sheet.frameWidth, frameHeight: sheet.frameHeight, frames: sheet.count, fps: s.fps,
@@ -272,6 +294,9 @@ export function createAnimPanel(root, mainStore) {
     $('#anim-onion', root).setAttribute('aria-pressed', String(s.onion));
     $('#anim-between', root).disabled = s.frames.length < 2;
     for (const b of root.querySelectorAll('[data-walk]')) b.setAttribute('aria-pressed', String(b.dataset.walk === s.walkStyle));
+    for (const b of root.querySelectorAll('[data-clip]')) b.setAttribute('aria-pressed', String(b.dataset.clip === s.clip));
+    $('#anim-walk-label', root).textContent = `Générer : ${(ACTION_INFO[s.clip]?.label ?? s.clip).toLowerCase()}`;
+    polish.checked = s.polish;
     if (document.activeElement !== betweenN) betweenN.value = String(s.between);
     $('#anim-undo', root).disabled = !s.history.undo;
     $('#anim-redo', root).disabled = !s.history.redo;
@@ -287,7 +312,7 @@ export function createAnimPanel(root, mainStore) {
   watch(anim, ['rig', 'version', 'selected'], renderParts);
   watch(anim, ['frames', 'current', 'selected', 'version'], renderPose);
   watch(anim, ['base', 'color'], renderSwatches);
-  watch(anim, ['frames', 'current', 'version', 'base'], () => renderStrip());
-  watch(anim, ['step', 'tool', 'brush', 'history', 'frames', 'current', 'playing', 'color', 'fps', 'pan', 'onion', 'walkStyle', 'between'], renderBars);
+  watch(anim, ['frames', 'current', 'version', 'base', 'polish'], () => renderStrip());
+  watch(anim, ['step', 'tool', 'brush', 'history', 'frames', 'current', 'playing', 'color', 'fps', 'pan', 'onion', 'walkStyle', 'between', 'clip', 'polish'], renderBars);
   watch(anim, ['active'], (s) => { if (s.active) { renderParts(); renderPose(); renderSwatches(); renderStrip(); renderBars(); } });
 }

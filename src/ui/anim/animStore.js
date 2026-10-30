@@ -5,7 +5,10 @@
 import { createStore } from '../state.js';
 import { createRig, composeFrame, applyEdits, completeParts, fillPoseGaps, inferJoints, BODY } from '../../core/rig.js';
 import { inBetween } from '../../core/poses.js';
-import { detectLimbs, walkPoses } from '../../core/walk.js';
+import { detectLimbs } from '../../core/walk.js';
+import { actionPoses, ACTION_INFO } from '../../core/actions.js';
+import { polishFrame } from '../../core/polish.js';
+import { serializeProject, parseProject } from '../../core/project.js';
 import { cloneImage } from '../../core/image.js';
 import { HUMAN_PARTS, estimateJoints, skinFromSkeleton } from '../../core/skeleton.js';
 import { removeSmallIslands } from '../../core/cleanup.js';
@@ -31,7 +34,10 @@ export const anim = createStore({
   fps: 8,
   pan: false,        // outil main : glisser déplace la vue, jamais le personnage
   onion: false,      // pelure d'oignon : image précédente et suivante en transparence
-  walkStyle: 'face', // face | droite | gauche
+  walkStyle: 'face', // face | droite | gauche : direction du regard des animations générées
+  clip: 'marche',    // animation en cours (voir core/actions.js) ; ses images sont `frames`
+  clips: {},         // les images des autres animations, par nom
+  polish: true,      // finition auto des images (pixels seuls, îlots, petits trous)
   between: 3,        // nombre d'images à intercaler
   version: 0,        // incrémenté à chaque changement du découpage
   history: { undo: 0, redo: 0 },
@@ -86,6 +92,7 @@ export function start(image) {
     anim.set({
       base, active: true, rig: createRig(base.width, base.height),
       frames: [{ pose: {}, edits: new Map() }], current: 0, selected: BODY, step: 'cut', tool: 'paint',
+      clip: 'marche', clips: {},
     });
     anim.get().rig.parts[0].pivotSet = true;
     publish();
@@ -270,11 +277,13 @@ const cache = new WeakMap();
 export function frameImage(frame) {
   const s = anim.get();
   const hit = cache.get(frame);
-  if (hit && hit.version === s.version && hit.base === s.base) return hit.result;
+  if (hit && hit.version === s.version && hit.base === s.base && hit.polish === s.polish) return hit.result;
   ensurePivots();
   const composed = composeFrame(s.base, s.rig, frame.pose);
-  const result = { ...composed, image: applyEdits(composed.image, frame.edits) };
-  cache.set(frame, { version: s.version, base: s.base, result });
+  // la finition passe avant les retouches : ce qui est retouché à la main reste tel quel
+  const image = s.polish ? polishFrame(composed.image) : composed.image;
+  const result = { ...composed, image: applyEdits(image, frame.edits) };
+  cache.set(frame, { version: s.version, base: s.base, polish: s.polish, result });
   return result;
 }
 
@@ -298,8 +307,11 @@ export function interpolateFrames(count) {
   return count;
 }
 
-/** Remplace les images par un cycle de marche de 8 poses. Renvoie false s'il n'y a ni bras ni jambe à animer. */
-export function generateWalk(style = anim.get().walkStyle) {
+/**
+ * Remplace les images de l'animation en cours par ses poses prêtes à l'emploi (marche, repos,
+ * attaque, touché : voir core/actions.js). Renvoie false s'il n'y a ni bras ni jambe à animer.
+ */
+export function generateAction(style = anim.get().walkStyle, action = anim.get().clip) {
   // les pièces sont déjà découpées : on en déduit articulations et hiérarchie manquantes
   if (inferJoints(anim.get().base, anim.get().rig)) bump();
   ensurePivots();
@@ -307,9 +319,54 @@ export function generateWalk(style = anim.get().walkStyle) {
   const limbs = detectLimbs(base, rig);
   if (!limbs) return false;
   commit();
-  const frames = walkPoses(limbs, { style }).map((pose) => ({ pose, edits: new Map() }));
-  anim.set({ frames, current: 0, step: 'pose', playing: false });
+  const frames = actionPoses(limbs, action, { style }).map((pose) => ({ pose, edits: new Map() }));
+  anim.set({ frames, current: 0, step: 'pose', playing: false, fps: ACTION_INFO[action]?.fps ?? anim.get().fps });
   return true;
+}
+export const generateWalk = (style) => generateAction(style, 'marche');
+
+/** Passe à une autre animation (repos, marche…) : ses images remplacent celles de l'écran. */
+export function switchClip(name) {
+  const s = anim.get();
+  if (name === s.clip) return;
+  const clips = { ...s.clips, [s.clip]: s.frames };
+  const frames = clips[name] || [{ pose: {}, edits: new Map() }];
+  delete clips[name];
+  // l'historique ne suit pas d'une animation à l'autre
+  undo = []; redo = [];
+  anim.set({ clips, clip: name, frames, current: 0, playing: false, fps: ACTION_INFO[name]?.fps ?? s.fps });
+  publish();
+}
+
+/** Toutes les animations qui ont été travaillées, par nom (celle à l'écran comprise). */
+export function allClips() {
+  const s = anim.get();
+  return { ...s.clips, [s.clip]: s.frames };
+}
+
+/* ----------------------------------------------------------------- projet */
+
+/** Le projet (sprite, découpage, animations) en JSON, pour le reprendre plus tard. */
+export function saveProject() {
+  const s = anim.get();
+  ensurePivots();
+  return serializeProject({ base: s.base, rig: s.rig, clips: allClips(), clip: s.clip, fps: s.fps, style: s.walkStyle });
+}
+
+/** Ouvre un projet : remplace tout le mode Animation. Lève une erreur si le fichier n'en est pas un. */
+export function loadProject(text) {
+  const p = parseProject(text);
+  const clip = p.clip && p.clips[p.clip] ? p.clip : Object.keys(p.clips)[0] || 'marche';
+  const clips = { ...p.clips };
+  const frames = clips[clip] || [{ pose: {}, edits: new Map() }];
+  delete clips[clip];
+  undo = []; redo = [];
+  anim.set({
+    base: p.base, rig: p.rig, active: true, clip, clips, frames, current: 0, selected: BODY,
+    step: 'pose', tool: 'paint', fps: p.fps, walkStyle: p.style || anim.get().walkStyle, playing: false,
+  });
+  publish();
+  bump();
 }
 
 /** Étend les pièces peintes jusqu'aux pivots. Renvoie le nombre de pixels attribués (0 : rien n'a changé). */

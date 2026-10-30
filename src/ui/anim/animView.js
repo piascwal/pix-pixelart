@@ -446,7 +446,7 @@ export function createAnimView(canvas, container) {
   let frame = 0;
   const redraw = () => { if (!frame) frame = requestAnimationFrame(() => { frame = 0; draw(); }); };
   watch(anim, ['active'], (s) => { if (s.active) { fittedFor = ''; requestAnimationFrame(resize); } });
-  watch(anim, ['base', 'version', 'frames', 'current', 'selected', 'step', 'tool', 'onion'], redraw);
+  watch(anim, ['base', 'version', 'frames', 'current', 'selected', 'step', 'tool', 'onion', 'polish'], redraw);
   watch(anim, ['pan'], panCursor);
   watch(anim, ['playing', 'fps'], syncPlayback);
   new ResizeObserver(resize).observe(container);

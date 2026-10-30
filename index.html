@@ -83,6 +83,10 @@
             <input type="file" id="file" accept="image/png,image/jpeg,image/webp" multiple hidden>
             Choisir une image
           </label>
+          <label class="btn">
+            <input type="file" accept=".json,application/json" hidden data-open-project>
+            Ouvrir un projet d'animation
+          </label>
           <p class="muted">PNG, JPG ou WebP. Rien n'est envoyé : la conversion se fait sur votre appareil.</p>
         </div>
       </div>
@@ -347,13 +351,20 @@
       <button type="button" class="btn btn-small" id="anim-reset-pose"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#rotate-ccw"/></svg> Remettre au repos</button>
     </section>
     <section class="card" data-anim-card="pose" hidden>
-      <h2>Marche</h2>
-      <div class="segmented segmented-full" role="group" aria-label="Style de marche">
+      <h2>Animations</h2>
+      <div class="segmented segmented-full" role="group" aria-label="Animation en cours">
+        <button type="button" data-clip="repos" data-tip="Repos : il respire sur place">Repos</button>
+        <button type="button" data-clip="marche" data-tip="Marche : cycle de 8 images">Marche</button>
+        <button type="button" data-clip="attaque" data-tip="Attaque : il arme puis frappe vers l'avant">Attaque</button>
+        <button type="button" data-clip="touche" data-tip="Touché : il recule sous le coup">Touché</button>
+      </div>
+      <div class="segmented segmented-full" role="group" aria-label="Direction du regard">
         <button type="button" data-walk="face">De face</button>
         <button type="button" data-walk="droite">Vers la droite</button>
         <button type="button" data-walk="gauche">Vers la gauche</button>
       </div>
-      <button type="button" class="btn btn-small btn-primary" id="anim-walk"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#footprints"/></svg> Générer la marche</button>
+      <button type="button" class="btn btn-small btn-primary" id="anim-walk"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#footprints"/></svg> <span id="anim-walk-label">Générer la marche</span></button>
+      <label class="check" data-tip="Retire les pixels seuls et les petits îlots, bouche les petits trous, sur toutes les images (les retouches à la main restent)"><input type="checkbox" id="anim-polish"> Finition auto</label>
     </section>
     <section class="card" data-anim-card="touch" hidden>
       <h2>Retouche</h2>
@@ -371,6 +382,13 @@
       <div class="export-buttons two">
         <button type="button" class="btn" data-anim-export="gif4">GIF ×4</button>
         <button type="button" class="btn" data-anim-export="gif8">GIF ×8</button>
+      </div>
+      <button type="button" class="btn btn-primary" data-anim-export="jeu" data-tip="Une ligne par animation travaillée (repos, marche, attaque, touché), toutes sur la même boîte, et un JSON qui les décrit">Pour le jeu (PNG + JSON)</button>
+      <h2>Projet</h2>
+      <p class="hint">Le sprite, son découpage et toutes ses animations, dans un fichier à rouvrir plus tard.</p>
+      <div class="export-buttons two">
+        <button type="button" class="btn" id="anim-save-project">Enregistrer</button>
+        <label class="btn"><input type="file" accept=".json,application/json" hidden data-open-project> Ouvrir</label>
       </div>
     </section>
   </aside>

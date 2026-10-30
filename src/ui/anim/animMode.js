@@ -2,7 +2,8 @@
 // (retouches comprises) ; la conversion reste intacte et on y revient par « Retour ».
 
 import { watch } from '../state.js';
-import { anim, start, stop, undoLast, redoLast } from './animStore.js';
+import { anim, start, stop, undoLast, redoLast, loadProject } from './animStore.js';
+import { toast } from '../clipboard.js';
 import { createAnimView } from './animView.js';
 import { createAnimPanel } from './animPanel.js';
 
@@ -15,6 +16,22 @@ export function setupAnimation(mainStore) {
     if (edited?.width) start(edited);
   });
   document.querySelector('#anim-exit').addEventListener('click', stop);
+
+  // « Ouvrir un projet » : depuis l'accueil comme depuis le mode Animation
+  for (const input of document.querySelectorAll('[data-open-project]')) {
+    input.addEventListener('change', async () => {
+      const file = input.files?.[0];
+      input.value = '';
+      if (!file) return;
+      try {
+        loadProject(await file.text());
+        mainStore.set({ sourceName: file.name.replace(/\.json$/i, '') });
+        toast('Projet ouvert');
+      } catch (e) {
+        toast(e.message || 'Projet illisible');
+      }
+    });
+  }
 
   watch(anim, ['active'], (s) => {
     document.body.classList.toggle('is-anim', s.active);
