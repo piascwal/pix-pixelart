@@ -49,6 +49,8 @@ Bouton **Animer** (barre d'outils, une fois l'image convertie) : un mode à part
 
 **Projet** : « Enregistrer » télécharge un fichier JSON avec le sprite, son découpage (pièces, pivots, ordre) et toutes les animations (poses et retouches) ; « Ouvrir » (dans le mode Animation, ou « Ouvrir un projet d'animation » à l'accueil) reprend le travail là où il en était (`src/core/project.js`).
 
+**Panneau** : chaque carte (Pièces, Pose, Animations, Exporter, Projet) se plie et se déplie en touchant son titre, et Depix s'en souvient ; sur un petit écran, seules Pièces et Animations sont dépliées la première fois, et la liste des pièces défile dans sa carte.
+
 **Images** : « + » ajoute une image (copie de la pose courante), lecture en boucle, images par seconde réglables. **Intercaler** : choisit un nombre d'images (1 à 12) et les calcule entre l'image courante et la suivante (la dernière boucle vers la première) en répartissant régulièrement les angles et décalages ; annulable d'un coup. **Pelure d'oignon** (calques) : l'image précédente en bleu et la suivante en vert, en transparence, pour caler la pose.
 
 **Pour le jeu** : une planche PNG avec une ligne par animation travaillée (repos, marche, attaque, touché), toutes les images sur la même boîte (les pieds ne sautent pas d'une animation à l'autre), et un JSON : `frameWidth`, `frameHeight`, `animations` (`name`, `row`, `frames`, `fps`) et `regard`.

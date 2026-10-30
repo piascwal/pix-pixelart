@@ -569,3 +569,14 @@ input.part-name { padding: 3px 6px; border: 1px solid var(--line); border-radius
 .galerie-item { display: grid; justify-items: center; gap: 2px; padding: 4px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: inherit; font: inherit; font-size: 0.78rem; cursor: pointer; }
 .galerie-item[aria-pressed="true"] { border-color: var(--accent, #ff4fa3); box-shadow: 0 0 0 1px var(--accent, #ff4fa3); }
 .galerie-item canvas { width: 100%; height: 84px; object-fit: contain; image-rendering: pixelated; }
+
+/* cartes repliables du panneau Animation : le titre est un bouton, un toucher plie ou déplie la carte */
+.card.is-collapsible > h2 { display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; user-select: none; margin: -4px; padding: 4px; }
+.card.is-collapsible > h2::after { content: ""; flex: none; width: 8px; height: 8px; margin-right: 4px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg) translateY(-2px); transition: transform 0.15s; opacity: 0.7; }
+.card.is-collapsible.is-collapsed > h2::after { transform: rotate(-45deg); }
+.card.is-collapsible.is-collapsed { gap: 0; }
+.card.is-collapsible.is-collapsed > :not(h2) { display: none !important; }
+.card.is-collapsible > h2:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+.anim-galerie > .hint { grid-column: 1 / -1; margin: 0; }
+/* petit écran : la liste des pièces défile dans sa carte plutôt que de pousser le reste du panneau */
+@media (max-width: 999px) { #anim-part-list { max-height: 36vh; overflow-y: auto; } }

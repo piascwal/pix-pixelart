@@ -37,7 +37,44 @@ function iconButton(name, label, onClick) {
   return b;
 }
 
+/** Les cartes qui restent dépliées au départ sur un petit écran (le reste est replié : on voit le personnage sans défiler). */
+const OUVERTES_AU_DEPART = new Set(['Pièces', 'Animations']);
+const CLE_CARTES = 'depix-cartes-animation';
+
+/**
+ * Chaque carte du panneau se plie et se déplie en touchant son titre (clavier : Entrée ou Espace) ; l'état est
+ * gardé d'une visite à l'autre. Sur un petit écran, seules `OUVERTES_AU_DEPART` le sont la première fois.
+ */
+function carteRepliables(root) {
+  let memo = {};
+  try { memo = JSON.parse(localStorage.getItem(CLE_CARTES) || '{}'); } catch { /* stockage indisponible : tout reste déplié */ }
+  const petit = matchMedia('(max-width: 999px)').matches;
+  for (const card of root.querySelectorAll('aside .card')) {
+    const titre = card.querySelector(':scope > h2');
+    if (!titre) continue;
+    const nom = titre.textContent.trim();
+    card.classList.add('is-collapsible');
+    titre.tabIndex = 0;
+    titre.setAttribute('role', 'button');
+    const plie = (v) => {
+      card.classList.toggle('is-collapsed', v);
+      titre.setAttribute('aria-expanded', String(!v));
+    };
+    plie(nom in memo ? memo[nom] : petit && !OUVERTES_AU_DEPART.has(nom));
+    const bascule = () => {
+      plie(!card.classList.contains('is-collapsed'));
+      memo[nom] = card.classList.contains('is-collapsed');
+      try { localStorage.setItem(CLE_CARTES, JSON.stringify(memo)); } catch { /* sans mémoire : le choix vaut pour cette visite */ }
+    };
+    titre.addEventListener('click', bascule);
+    titre.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); bascule(); }
+    });
+  }
+}
+
 export function createAnimPanel(root, mainStore) {
+  carteRepliables(root);
   /* ---------------------------------------------------- étapes et outils */
   for (const b of root.querySelectorAll('[data-anim-step]')) {
     b.addEventListener('click', () => {
