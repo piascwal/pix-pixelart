@@ -10,7 +10,8 @@ import { actionPoses, ACTION_INFO } from '../../core/actions.js';
 import { polishFrame } from '../../core/polish.js';
 import { serializeProject, parseProject } from '../../core/project.js';
 import { cloneImage } from '../../core/image.js';
-import { HUMAN_PARTS, estimateJoints, skinFromSkeleton } from '../../core/skeleton.js';
+import { HUMAN_PARTS, estimateJoints } from '../../core/skeleton.js';
+import { geodesicSkin } from '../../core/geoskin.js';
 import { removeSmallIslands } from '../../core/cleanup.js';
 
 const NAMES = ['Bras gauche', 'Avant-bras gauche', 'Bras droit', 'Avant-bras droit', 'Cuisse gauche',
@@ -446,12 +447,15 @@ export function movePivot(id, x, y) {
   bump();
 }
 
-/** Découpage automatique d'après les articulations. Les pixels peints à la main ne bougent pas. */
+/**
+ * Découpage automatique d'après les articulations : chaque pièce grandit depuis son os à l'intérieur
+ * du dessin, en suivant les contours (core/geoskin.js). Les pixels peints à la main ne bougent pas.
+ */
 export function autoSkin() {
   const { rig } = anim.get();
   if (!rig.auto) rig.auto = new Uint8Array(rig.labels.length);
   const before = snapshot();
-  const n = skinFromSkeleton(anim.get().base, rig, rig.auto);
+  const n = geodesicSkin(anim.get().base, rig, rig.auto);
   undo.push(before);
   if (undo.length > MAX_HISTORY) undo.shift();
   redo = [];

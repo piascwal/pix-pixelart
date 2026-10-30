@@ -133,9 +133,39 @@ export function skinFromSkeleton(base, rig, reset = null) {
   const { width: w, height: h } = rig;
   const op = (i) => base.data[i * 4 + 3] > 0;
   if (reset) for (let i = 0; i < reset.length; i++) if (reset[i]) { rig.labels[i] = BODY; reset[i] = 0; }
+  const bones = bonesOf(base, rig);
+
+  let count = 0;
+  for (let i = 0; i < w * h; i++) {
+    if (!op(i) || rig.labels[i] !== BODY) continue;
+    const px = (i % w) + 0.5, py = ((i / w) | 0) + 0.5;
+    let best = -1, bd = Infinity;
+    for (const bone of bones) {
+      const t = ((px - bone.a.x) * bone.ux + (py - bone.a.y) * bone.uy);
+      if (t < 0 || (bone.capEnd && t > bone.len)) continue;
+      const tt = Math.min(t, bone.len);
+      const d = Math.hypot(px - (bone.a.x + bone.ux * tt), py - (bone.a.y + bone.uy * tt));
+      if (d > bone.r) continue;
+      const score = d / bone.r;
+      if (score < bd) { bd = score; best = bone.id; }
+    }
+    if (best >= 0) {
+      rig.labels[i] = best;
+      if (reset) reset[i] = 1;
+      count++;
+    }
+  }
+  return count;
+}
+
+/**
+ * Les os des pièces dont le pivot est placé : un os va du pivot de la pièce à celui de sa pièce
+ * enfant ; sans enfant, il se prolonge dans la direction parent → pivot (capEnd faux).
+ * @returns {Array<{ id, a, ux, uy, len, capEnd, r }>} r : rayon d'influence selon le nom de la pièce
+ */
+export function bonesOf(base, rig) {
   const fb = focusBounds(base);
   const H = Math.max(1, fb.y1 - fb.y0);
-
   const placed = rig.parts.filter((p) => p.id !== BODY && p.pivotSet !== false);
   const byId = new Map(rig.parts.map((p) => [p.id, p]));
   const bones = [];
@@ -163,25 +193,5 @@ export function skinFromSkeleton(base, rig, reset = null) {
     bones.push({ id: part.id, a, ux: (b.x - a.x) / len, uy: (b.y - a.y) / len, len, capEnd, r: radiusFor(part.name, H) });
   }
 
-  let count = 0;
-  for (let i = 0; i < w * h; i++) {
-    if (!op(i) || rig.labels[i] !== BODY) continue;
-    const px = (i % w) + 0.5, py = ((i / w) | 0) + 0.5;
-    let best = -1, bd = Infinity;
-    for (const bone of bones) {
-      const t = ((px - bone.a.x) * bone.ux + (py - bone.a.y) * bone.uy);
-      if (t < 0 || (bone.capEnd && t > bone.len)) continue;
-      const tt = Math.min(t, bone.len);
-      const d = Math.hypot(px - (bone.a.x + bone.ux * tt), py - (bone.a.y + bone.uy * tt));
-      if (d > bone.r) continue;
-      const score = d / bone.r;
-      if (score < bd) { bd = score; best = bone.id; }
-    }
-    if (best >= 0) {
-      rig.labels[i] = best;
-      if (reset) reset[i] = 1;
-      count++;
-    }
-  }
-  return count;
+  return bones;
 }
