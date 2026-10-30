@@ -5,7 +5,7 @@
 import { BODY, spriteSheet, commonBounds } from '../../core/rig.js';
 import { gameSheet } from '../../core/project.js';
 import { jointLabel } from '../../core/skeleton.js';
-import { ACTIONS, ACTION_INFO, VARIANTES } from '../../core/actions.js';
+import { ACTIONS, ACTION_INFO } from '../../core/actions.js';
 import { usedColors } from '../../core/palette.js';
 import { toHex } from '../../core/image.js';
 import { upscale, flatten } from '../../core/upscale.js';
@@ -17,7 +17,7 @@ import { icon } from '../icons.js';
 import { toast } from '../clipboard.js';
 import {
   anim, commit, undoLast, redoLast, addPart, removePart, updatePart, movePart, setPose,
-  addFrame, removeFrame, clearEdits, frameImage, partColor, interpolateFrames, generateAction, switchClip, allClips, saveProject, variantPreviews, propagateFill, completeCut, completePose, addHumanSkeleton, autoSkin, cleanIslands,
+  addFrame, removeFrame, clearEdits, frameImage, partColor, interpolateFrames, generateAction, switchClip, allClips, saveProject, variantPreviews, propagateFill, completeCut, completePose, addHumanSkeleton, addQuadSkeleton, autoSkin, cleanIslands,
 } from './animStore.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -231,7 +231,7 @@ export function createAnimPanel(root, mainStore) {
     clearInterval(timer);
     if (!visible) { gallery.replaceChildren(); shown = []; return; }
     const list = variantPreviews();
-    const chosen = s.variantes[s.clip] || VARIANTES[s.clip]?.[0].key;
+    const chosen = s.variantes[s.clip] || list[0]?.key;
     gallery.replaceChildren();
     shown = list.map((v) => {
       const b = el('button', 'galerie-item');
@@ -275,6 +275,10 @@ export function createAnimPanel(root, mainStore) {
   $('#anim-skeleton', root).addEventListener('click', () => {
     const n = addHumanSkeleton();
     toast(n ? 'Squelette posé : glissez chaque point sur son articulation' : 'Squelette déjà présent : articulations replacées si besoin');
+  });
+  $('#anim-skeleton-quad', root).addEventListener('click', () => {
+    const n = addQuadSkeleton();
+    toast(n ? 'Squelette à 4 pattes posé : glissez chaque point sur son articulation, puis Découpe auto' : 'Squelette déjà présent : articulations replacées si besoin');
   });
   $('#anim-skin', root).addEventListener('click', () => {
     const n = autoSkin();

@@ -8,6 +8,7 @@
 
 import { BODY } from './rig.js';
 import { focusBounds } from './frame.js';
+import { QUAD_PARTS, QUAD_JOINT_LABELS } from './quadruped.js';
 
 /** key, name, parent (key | null = corps), joint : articulation qui sert de pivot. */
 export const HUMAN_PARTS = [
@@ -41,7 +42,9 @@ export const JOINT_LABELS = {
  */
 export function jointLabel(partName) {
   const spec = HUMAN_PARTS.find((p) => p.name === partName);
-  return spec ? JOINT_LABELS[spec.joint] : `Articulation de ${partName.toLowerCase()}`;
+  if (spec) return JOINT_LABELS[spec.joint];
+  const quad = QUAD_PARTS.find((p) => p.name === partName);
+  return quad ? QUAD_JOINT_LABELS[quad.joint] : `Articulation de ${partName.toLowerCase()}`;
 }
 
 const snap = (v) => Math.floor(v) + 0.5;

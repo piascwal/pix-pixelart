@@ -9,6 +9,10 @@ import { detectLimbs } from '../../core/walk.js';
 import { actionPoses, ACTION_INFO, VARIANTES } from '../../core/actions.js';
 import { polishFrame } from '../../core/polish.js';
 import { propagateFills, bodyShift } from '../../core/propagate.js';
+import { QUAD_PARTS, QUAD_VARIANTES, estimateQuadJoints, isQuadruped, quadFacing, quadPoses } from '../../core/quadruped.js';
+
+/** Le regard d'un quadrupède : celui choisi (vers la droite / la gauche), sinon celui de son dessin. */
+const quadFacingOf = (style, rig) => (style === 'gauche' ? -1 : style === 'droite' ? 1 : quadFacing(rig));
 import { serializeProject, parseProject } from '../../core/project.js';
 import { cloneImage, crop } from '../../core/image.js';
 import { HUMAN_PARTS, estimateJoints } from '../../core/skeleton.js';
@@ -355,12 +359,21 @@ export function generateAction(style = anim.get().walkStyle, action = anim.get()
   if (inferJoints(anim.get().base, anim.get().rig)) bump();
   ensurePivots();
   const { base, rig } = anim.get();
-  const limbs = detectLimbs(base, rig);
-  if (!limbs) return false;
-  commit();
   const n = anim.get().nbImages;
-  const poses = actionPoses(limbs, action, { style, variante, frames: n || undefined });
-  const natural = n ? actionPoses(limbs, action, { style, variante }).length : poses.length;
+  let poses, natural;
+  if (isQuadruped(rig)) {
+    // un animal à quatre pattes : ses propres animations (core/quadruped.js)
+    const opts = { facing: quadFacingOf(style, rig), variante };
+    poses = quadPoses(rig, action, base.height, { ...opts, frames: n || undefined });
+    natural = n ? quadPoses(rig, action, base.height, opts).length : poses.length;
+    commit();
+  } else {
+    const limbs = detectLimbs(base, rig);
+    if (!limbs) return false;
+    commit();
+    poses = actionPoses(limbs, action, { style, variante, frames: n || undefined });
+    natural = n ? actionPoses(limbs, action, { style, variante }).length : poses.length;
+  }
   // moins d'images pour le même mouvement : on les joue plus lentement, sinon l'animation s'accélère
   const fps = Math.max(2, Math.round((ACTION_INFO[action]?.fps ?? anim.get().fps) * (poses.length / natural)));
   const frames = poses.map((pose) => ({ pose, edits: new Map() }));
@@ -386,10 +399,14 @@ export function variantPreviews() {
   // sur une copie : déduire les articulations ne doit pas toucher au découpage de l'utilisateur
   const rig = structuredClone(s.rig);
   inferJoints(s.base, rig);
-  const limbs = detectLimbs(s.base, rig);
+  const quad = isQuadruped(rig);
+  const limbs = quad ? null : detectLimbs(s.base, rig);
+  const posesOf = (k) => quad
+    ? quadPoses(rig, s.clip, s.base.height, { facing: quadFacingOf(s.walkStyle, rig), variante: k, frames: s.nbImages || undefined })
+    : actionPoses(limbs, s.clip, { style: s.walkStyle, variante: k, frames: s.nbImages || undefined });
   previews.key = key;
-  previews.list = !limbs ? [] : (VARIANTES[s.clip] || []).map(({ key: k, label }) => {
-    const images = actionPoses(limbs, s.clip, { style: s.walkStyle, variante: k, frames: s.nbImages || undefined }).map((pose) => {
+  previews.list = !quad && !limbs ? [] : ((quad ? QUAD_VARIANTES : VARIANTES)[s.clip] || []).map(({ key: k, label }) => {
+    const images = posesOf(k).map((pose) => {
       const img = composeFrame(s.base, rig, pose).image;
       return s.polish ? polishFrame(img) : img;
     });
@@ -509,6 +526,40 @@ export function addHumanSkeleton() {
     part.parent = spec.parent ? ids.get(spec.parent) : BODY;
   }
   anim.set({ selected: ids.get('armL'), step: 'cut', tool: 'pivot' });
+  bump();
+  return created;
+}
+
+/**
+ * Crée les pièces d'un animal à quatre pattes (deux par patte, la tête, la queue) avec leurs articulations lues sur la
+ * silhouette (core/quadruped.js). Les pattes de l'autre côté passent derrière le corps, celles du côté du spectateur
+ * et la tête devant. Les pièces qui existent déjà (même nom) sont gardées. @returns {number} nombre de pièces créées
+ */
+export function addQuadSkeleton() {
+  const { rig, base } = anim.get();
+  commit();
+  const { joints: J } = estimateQuadJoints(base);
+  const ids = new Map();
+  let created = 0;
+  for (const spec of QUAD_PARTS) {
+    let part = rig.parts.find((p) => p.name === spec.name);
+    if (!part) {
+      const id = Math.max(...rig.parts.map((p) => p.id)) + 1;
+      part = { id, name: spec.name, pivot: { ...J[spec.joint] }, parent: BODY, pivotSet: true };
+      rig.parts.push(part);
+      created++;
+    } else if (!part.pivotSet) {
+      part.pivot = { ...J[spec.joint] };
+      part.pivotSet = true;
+    }
+    ids.set(spec.key, part.id);
+  }
+  for (const spec of QUAD_PARTS) rig.parts.find((p) => p.id === ids.get(spec.key)).parent = spec.parent ? ids.get(spec.parent) : BODY;
+  const behind = ['thighBF', 'shinBF', 'thighFF', 'shinFF', 'tail'].map((k) => ids.get(k));
+  const front = ['thighBN', 'shinBN', 'thighFN', 'shinFN', 'head'].map((k) => ids.get(k));
+  const others = rig.order.filter((id) => id !== BODY && !behind.includes(id) && !front.includes(id));
+  rig.order = [...behind, BODY, ...others, ...front];
+  anim.set({ selected: ids.get('head'), step: 'cut', tool: 'pivot' });
   bump();
   return created;
 }
