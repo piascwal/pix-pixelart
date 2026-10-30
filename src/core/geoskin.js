@@ -128,7 +128,9 @@ export function geodesicSkin(base, rig, reset = null, { darkLimit = 60, darkCost
   const bones = bonesOf(base, rig);
   if (!bones.length) return 0;
   const boneOf = new Map(bones.map((b) => [b.id, b]));
-  const headIds = new Set(rig.parts.filter((p) => HEAD.test(p.name)).map((p) => p.id));
+  // la tête d'un personnage reste près de son axe ; celle d'un animal (museau en avant, bois) s'étend librement
+  const animal = rig.parts.some((p) => /^cuisse (avant|arrière)/i.test(p.name));
+  const headIds = new Set(animal ? [] : rig.parts.filter((p) => HEAD.test(p.name)).map((p) => p.id));
 
   const N = w * h;
   const owner = new Int16Array(N).fill(-1);
