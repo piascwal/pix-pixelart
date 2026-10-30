@@ -157,3 +157,53 @@ test('déduire les articulations : une cuisse accrochée à l’autre (ancien pr
   assert.equal(rig.parts.find((p) => p.id === 2).parent, BODY);
   assert.equal(rig.parts.find((p) => p.id === 3).parent, 2, 'un avant-bras garde son parent');
 });
+
+test('nombre d’images : la marche est refaite pour ce nombre, les autres sont ré-échantillonnées', async () => {
+  const { resample } = await import('../src/core/actions.js');
+  const { base, rig } = figure();
+  const limbs = detectLimbs(base, rig);
+  for (const n of [3, 4, 6, 8, 12]) {
+    for (const [action, variante] of [['marche', 'marche'], ['marche', 'glisse'], ['marche', 'dandine'], ['attaque', 'frappe'], ['touche', 'recul'], ['repos', 'respire']]) {
+      const poses = actionPoses(limbs, action, { style: 'droite', variante, frames: n });
+      assert.equal(poses.length, n, `${action}/${variante} en ${n}`);
+      for (const pose of poses) composeFrame(base, rig, pose);
+    }
+  }
+  // le ré-échantillonnage garde les extrémités d'une animation qui ne boucle pas, et fait le tour d'une boucle
+  const at = (angle) => ({ 1: { angle, dx: 0, dy: 0 } });
+  const clés = [at(0), at(40), at(80)];
+  assert.deepEqual(resample(clés, 5, false).map((p) => p[1].angle), [0, 20, 40, 60, 80]);
+  assert.deepEqual(resample(clés, 3, true).map((p) => p[1].angle), [0, 40, 80]);
+  assert.equal(resample(clés, 6, true).length, 6);
+});
+
+test('propager un comblage : le trou bouché sur une image l’est sur les autres, décalé avec le corps', async () => {
+  const { propagateFills, isEnclosed, bodyShift } = await import('../src/core/propagate.js');
+  const W = 30, H = 30;
+  const imageWithHole = (shiftY) => {
+    const img = createImage(W, H);
+    for (let y = 5 + shiftY; y < 25 + shiftY; y++) for (let x = 5; x < 25; x++) put(img, x, y, [10, 20, 30]);
+    for (let y = 12 + shiftY; y < 15 + shiftY; y++) for (let x = 12; x < 15; x++) img.data[(y * W + x) * 4 + 3] = 0;   // le trou
+    return img;
+  };
+  const source = imageWithHole(0), plus = imageWithHole(2), moins = imageWithHole(-1);
+  assert.ok(isEnclosed(source, 13, 13));
+  assert.ok(!isEnclosed(source, 1, 1), 'le vide autour du personnage n’est pas un trou');
+  // la retouche : 9 pixels de comblage, plus un pixel posé dans le vide (à ne pas recopier) et un pixel sur du plein
+  const edits = new Map();
+  for (let y = 12; y < 15; y++) for (let x = 12; x < 15; x++) edits.set(y * W + x, [200, 100, 50, 255]);
+  edits.set(1 * W + 1, [255, 0, 0, 255]);
+  edits.set(8 * W + 8, [255, 0, 0, 255]);
+  const [a, b] = propagateFills(source, edits, bodyShift({}), [
+    { image: plus, shift: bodyShift({ 0: { dx: 0, dy: 2 } }) },
+    { image: moins, shift: bodyShift({ 0: { dx: 0, dy: -1 } }) },
+  ]);
+  assert.equal(a.size, 9, 'les neuf pixels du trou, rien d’autre');
+  for (let y = 14; y < 17; y++) for (let x = 12; x < 15; x++) assert.deepEqual(a.get(y * W + x), [200, 100, 50, 255]);
+  assert.equal(b.size, 9);
+  assert.ok(b.has(11 * W + 12));
+  // une image dont le même endroit est déjà plein (un membre devant) n'est pas touchée
+  const full = createImage(W, H);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) put(full, x, y, [1, 2, 3]);
+  assert.equal(propagateFills(source, edits, bodyShift({}), [{ image: full, shift: bodyShift({}) }])[0].size, 0);
+});

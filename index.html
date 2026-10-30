@@ -364,6 +364,16 @@
         <button type="button" data-walk="droite">Vers la droite</button>
         <button type="button" data-walk="gauche">Vers la gauche</button>
       </div>
+      <label class="field-row" data-tip="Nombre d'images des animations générées : moins d'images, c'est une planche plus légère dans le jeu ; l'animation garde sa durée">
+        <span>Images</span>
+        <select id="anim-frames" aria-label="Nombre d'images">
+          <option value="0">Auto</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+          <option value="6">6</option>
+          <option value="8">8</option>
+        </select>
+      </label>
       <p class="hint">Aperçu de chaque variante sur votre personnage : touchez-en une pour la générer.</p>
       <div class="anim-galerie" id="anim-gallery"></div>
       <button type="button" class="btn btn-small btn-primary" id="anim-walk"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#footprints"/></svg> <span id="anim-walk-label">Générer la marche</span></button>
@@ -373,6 +383,11 @@
       <h2>Retouche</h2>
       <p class="hint">Crayon, gomme et pipette ne changent que l'image choisie dans la bande du bas (sous la vue) ; les autres images restent intactes.</p>
       <div class="swatches" id="anim-swatches"></div>
+      <p class="hint">Un trou bouché sur une image se retrouve sur les autres : recopiez-le plutôt que de le reboucher à chaque fois (seuls les trous du même genre sont remplis, jamais le vide autour ni un membre).</p>
+      <div class="export-buttons two">
+        <button type="button" class="btn btn-small" id="anim-propagate-after" data-tip="Recopie les trous bouchés de cette image sur les images suivantes">Aux suivantes</button>
+        <button type="button" class="btn btn-small" id="anim-propagate-all" data-tip="Recopie les trous bouchés de cette image sur toutes les autres images">À toutes</button>
+      </div>
       <button type="button" class="btn btn-small" id="anim-clear-edits"><svg class="icon" aria-hidden="true"><use href="assets/icons.svg#rotate-ccw"/></svg> Effacer les retouches de cette image</button>
     </section>
     <section class="card" data-anim-card="cut pose touch">

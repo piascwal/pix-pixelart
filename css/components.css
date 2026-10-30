@@ -580,3 +580,5 @@ input.part-name { padding: 3px 6px; border: 1px solid var(--line); border-radius
 .anim-galerie > .hint { grid-column: 1 / -1; margin: 0; }
 /* petit écran : la liste des pièces défile dans sa carte plutôt que de pousser le reste du panneau */
 @media (max-width: 999px) { #anim-part-list { max-height: 36vh; overflow-y: auto; } }
+.field-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 0.9rem; }
+.field-row select { padding: 4px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: inherit; font: inherit; }

@@ -17,7 +17,7 @@ import { icon } from '../icons.js';
 import { toast } from '../clipboard.js';
 import {
   anim, commit, undoLast, redoLast, addPart, removePart, updatePart, movePart, setPose,
-  addFrame, removeFrame, clearEdits, frameImage, partColor, interpolateFrames, generateAction, switchClip, allClips, saveProject, variantPreviews, completeCut, completePose, addHumanSkeleton, autoSkin, cleanIslands,
+  addFrame, removeFrame, clearEdits, frameImage, partColor, interpolateFrames, generateAction, switchClip, allClips, saveProject, variantPreviews, propagateFill, completeCut, completePose, addHumanSkeleton, autoSkin, cleanIslands,
 } from './animStore.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -250,7 +250,9 @@ export function createAnimPanel(root, mainStore) {
     step();
     timer = setInterval(step, 1000 / Math.max(1, ACTION_INFO[s.clip]?.fps ?? 8));
   }
-  watch(anim, ['active', 'step', 'version', 'clip', 'walkStyle', 'polish', 'variantes'], renderGallery);
+  watch(anim, ['active', 'step', 'version', 'clip', 'walkStyle', 'polish', 'variantes', 'nbImages'], renderGallery);
+  const nb = $('#anim-frames', root);
+  nb.addEventListener('change', () => anim.set({ nbImages: Number(nb.value) }));
   const polish = $('#anim-polish', root);
   polish.addEventListener('change', () => anim.set({ polish: polish.checked }));
   $('#anim-save-project', root).addEventListener('click', () => {
@@ -259,6 +261,14 @@ export function createAnimPanel(root, mainStore) {
   $('#anim-walk', root).addEventListener('click', () => {
     if (!generateAction(anim.get().walkStyle)) toast('Aucun bras ni jambe reconnu : vérifiez que chaque membre est une pièce avec son pivot (hors tête).');
   });
+  for (const [id, portee] of [['#anim-propagate-after', 'apres'], ['#anim-propagate-all', 'toutes']]) {
+    $(id, root).addEventListener('click', () => {
+      const { pixels, images } = propagateFill(portee);
+      toast(pixels
+        ? `${pixels} pixel${pixels > 1 ? 's' : ''} recopié${pixels > 1 ? 's' : ''} sur ${images} image${images > 1 ? 's' : ''}`
+        : 'Rien à recopier : bouchez d’abord un trou sur cette image (crayon), les autres images doivent avoir le même trou.');
+    });
+  }
   $('#anim-complete', root).addEventListener('click', () => {
     if (!completeCut()) toast('Rien à ajouter : les pièces touchent déjà tous leurs pixels reliés (ou aucun pivot n\u2019est placé).');
   });
@@ -371,6 +381,7 @@ export function createAnimPanel(root, mainStore) {
     for (const b of root.querySelectorAll('[data-clip]')) b.setAttribute('aria-pressed', String(b.dataset.clip === s.clip));
     $('#anim-walk-label', root).textContent = `Générer : ${(ACTION_INFO[s.clip]?.label ?? s.clip).toLowerCase()}`;
     polish.checked = s.polish;
+    nb.value = String(s.nbImages);
     if (document.activeElement !== betweenN) betweenN.value = String(s.between);
     $('#anim-undo', root).disabled = !s.history.undo;
     $('#anim-redo', root).disabled = !s.history.redo;
@@ -387,6 +398,6 @@ export function createAnimPanel(root, mainStore) {
   watch(anim, ['frames', 'current', 'selected', 'version'], renderPose);
   watch(anim, ['base', 'color'], renderSwatches);
   watch(anim, ['frames', 'current', 'version', 'base', 'polish'], () => renderStrip());
-  watch(anim, ['step', 'tool', 'brush', 'history', 'frames', 'current', 'playing', 'color', 'fps', 'pan', 'onion', 'walkStyle', 'between', 'clip', 'polish'], renderBars);
+  watch(anim, ['step', 'tool', 'brush', 'history', 'frames', 'current', 'playing', 'color', 'fps', 'pan', 'onion', 'walkStyle', 'between', 'clip', 'polish', 'nbImages'], renderBars);
   watch(anim, ['active'], (s) => { if (s.active) { renderParts(); renderPose(); renderSwatches(); renderStrip(); renderBars(); } });
 }

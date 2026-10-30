@@ -8,6 +8,7 @@ import { inBetween } from '../../core/poses.js';
 import { detectLimbs } from '../../core/walk.js';
 import { actionPoses, ACTION_INFO, VARIANTES } from '../../core/actions.js';
 import { polishFrame } from '../../core/polish.js';
+import { propagateFills, bodyShift } from '../../core/propagate.js';
 import { serializeProject, parseProject } from '../../core/project.js';
 import { cloneImage, crop } from '../../core/image.js';
 import { HUMAN_PARTS, estimateJoints } from '../../core/skeleton.js';
@@ -39,6 +40,7 @@ export const anim = createStore({
   clip: 'marche',    // animation en cours (voir core/actions.js) ; ses images sont `frames`
   clips: {},         // les images des autres animations, par nom
   polish: true,      // finition auto des images (pixels seuls, îlots, petits trous)
+  nbImages: 0,       // nombre d'images des animations générées (0 : le nombre naturel de chacune)
   variantes: {},     // la variante choisie pour chaque animation (voir VARIANTES dans core/actions.js)
   between: 3,        // nombre d'images à intercaler
   version: 0,        // incrémenté à chaque changement du découpage
@@ -94,7 +96,7 @@ export function start(image) {
     anim.set({
       base, active: true, rig: createRig(base.width, base.height),
       frames: [{ pose: {}, edits: new Map() }], current: 0, selected: BODY, step: 'cut', tool: 'paint',
-      clip: 'marche', clips: {}, variantes: {},
+      clip: 'marche', clips: {}, variantes: {}, nbImages: 0,
     });
     anim.get().rig.parts[0].pivotSet = true;
     publish();
@@ -262,6 +264,41 @@ export function setEdit(index, rgba) {
     return { frames };
   });
 }
+/**
+ * Recopie les comblages de trous de l'image courante sur les autres images (voir core/propagate.js).
+ * @param {'apres'|'toutes'} portee les images suivantes, ou toutes les autres
+ * @returns {{ pixels: number, images: number }}
+ */
+export function propagateFill(portee = 'toutes') {
+  const s = anim.get();
+  const { base, rig, frames, current } = s;
+  const src = frames[current];
+  if (!src || !src.edits.size) return { pixels: 0, images: 0 };
+  ensurePivots();
+  // l'image de départ sans ses retouches : c'est elle qui montre où était le trou
+  const raw = composeFrame(base, rig, src.pose).image;
+  const source = s.polish ? polishFrame(raw) : raw;
+  const ids = frames.map((_, i) => i).filter((i) => i !== current && (portee === 'toutes' || i > current));
+  const found = propagateFills(
+    source,
+    src.edits,
+    bodyShift(src.pose),
+    ids.map((i) => ({ image: frameImage(frames[i]).image, shift: bodyShift(frames[i].pose) })),
+  );
+  const total = found.reduce((a, m) => a + m.size, 0);
+  if (!total) return { pixels: 0, images: 0 };
+  commit();
+  anim.set((st) => {
+    const list = [...st.frames];
+    ids.forEach((i, k) => {
+      if (!found[k].size) return;
+      list[i] = { ...list[i], edits: new Map([...list[i].edits, ...found[k]]) };
+    });
+    return { frames: list };
+  });
+  return { pixels: total, images: found.filter((m) => m.size).length };
+}
+
 export function clearEdits() {
   commit();
   anim.set((s) => {
@@ -321,9 +358,14 @@ export function generateAction(style = anim.get().walkStyle, action = anim.get()
   const limbs = detectLimbs(base, rig);
   if (!limbs) return false;
   commit();
-  const frames = actionPoses(limbs, action, { style, variante }).map((pose) => ({ pose, edits: new Map() }));
+  const n = anim.get().nbImages;
+  const poses = actionPoses(limbs, action, { style, variante, frames: n || undefined });
+  const natural = n ? actionPoses(limbs, action, { style, variante }).length : poses.length;
+  // moins d'images pour le même mouvement : on les joue plus lentement, sinon l'animation s'accélère
+  const fps = Math.max(2, Math.round((ACTION_INFO[action]?.fps ?? anim.get().fps) * (poses.length / natural)));
+  const frames = poses.map((pose) => ({ pose, edits: new Map() }));
   anim.set((st) => ({
-    frames, current: 0, step: 'pose', playing: false, fps: ACTION_INFO[action]?.fps ?? st.fps,
+    frames, current: 0, step: 'pose', playing: false, fps,
     variantes: variante ? { ...st.variantes, [action]: variante } : st.variantes,
   }));
   return true;
@@ -338,7 +380,7 @@ const previews = { key: '', list: [] };
 export function variantPreviews() {
   const s = anim.get();
   if (!s.rig || !s.base) return [];
-  const key = `${s.version}|${s.clip}|${s.walkStyle}|${s.polish}`;
+  const key = `${s.version}|${s.clip}|${s.walkStyle}|${s.polish}|${s.nbImages}`;
   if (previews.key === key) return previews.list;
   ensurePivots();
   // sur une copie : déduire les articulations ne doit pas toucher au découpage de l'utilisateur
@@ -347,7 +389,7 @@ export function variantPreviews() {
   const limbs = detectLimbs(s.base, rig);
   previews.key = key;
   previews.list = !limbs ? [] : (VARIANTES[s.clip] || []).map(({ key: k, label }) => {
-    const images = actionPoses(limbs, s.clip, { style: s.walkStyle, variante: k }).map((pose) => {
+    const images = actionPoses(limbs, s.clip, { style: s.walkStyle, variante: k, frames: s.nbImages || undefined }).map((pose) => {
       const img = composeFrame(s.base, rig, pose).image;
       return s.polish ? polishFrame(img) : img;
     });

@@ -9,6 +9,7 @@
 
 import { BODY } from './rig.js';
 import { walkPoses } from './walk.js';
+import { lerpPose } from './poses.js';
 
 export const ACTIONS = ['repos', 'marche', 'attaque', 'touche'];
 
@@ -71,13 +72,13 @@ function posed(limbs, facing, { arm = 0, fore = 0, thigh = 0, shin = 0, body = {
  * @param style 'face' | 'droite' | 'gauche' (direction du regard)
  * @returns {Array<object>} les poses
  */
-export function actionPoses(limbs, action, { style = 'droite', keepPose = true, variante } = {}) {
+function basePoses(limbs, action, { style = 'droite', keepPose = true, variante, frames } = {}) {
   // keepPose : la pose dessinée est la pose de repos (un bras replié sur un ballon le reste) ;
   // sinon les bras sont d'abord ramenés le long du corps, comme la marche de walk.js
   if (keepPose) limbs = { ...limbs, arms: limbs.arms.map((a) => ({ ...a, base: 0 })) };
   const v = variante || VARIANTES[action]?.[0].key;
   if (action === 'marche' && (v === 'marche' || v === 'course')) {
-    const poses = walkPoses(limbs, { style, amp: v === 'course' ? 1.6 : 1 });
+    const poses = walkPoses(limbs, { style, amp: v === 'course' ? 1.6 : 1, frames: frames || 8 });
     if (!keepPose) return poses;
     // un bras dessiné replié (sur un ballon, une arme) balance deux fois moins qu'un bras pendant
     const armParts = new Set(limbs.arms.flatMap((a) => a.parts));
@@ -86,7 +87,7 @@ export function actionPoses(limbs, action, { style = 'droite', keepPose = true, 
   const facing = style === 'gauche' ? -1 : 1;
   const H = limbs.height || 40;
   const u = Math.max(1, Math.round(H * 0.015)); // un « pas » de décalage, à l'échelle du sprite
-  const special = variantPoses(limbs, v, { facing, profile: style !== 'face', u });
+  const special = variantPoses(limbs, v, { facing, profile: style !== 'face', u, frames: frames || 8 });
   if (special) return special;
   if (style === 'face') return facePoses(limbs, action, u);
   if (action === 'repos') {
@@ -146,14 +147,14 @@ const lead = (list, facing) => list.find((l) => l.side === facing) || list[0];
  * Les variantes autres que celles par défaut ; null pour une variante par défaut (traitée plus haut).
  * profile : de profil (sinon de face) ; u : un pas de décalage, à l'échelle du sprite.
  */
-function variantPoses(limbs, v, { facing, profile, u }) {
+function variantPoses(limbs, v, { facing, profile, u, frames }) {
   const fwd = -facing;
   const set = (pose, id, angle = 0, dx = 0, dy = 0) => { if (id !== undefined) pose[id] = p(angle, dx, dy); };
   if (v === 'glisse') {
     // patin : une jambe pousse (en arrière de profil, vers l'extérieur de face), l'autre porte, genou plié ;
     // le corps reste bas et glisse vers la jambe qui porte ; les bras balancent large
-    return Array.from({ length: 8 }, (_, i) => {
-      const phi = (2 * Math.PI * i) / 8;
+    return Array.from({ length: frames }, (_, i) => {
+      const phi = (2 * Math.PI * i) / frames;
       const pose = {};
       let dx = 0;
       for (const l of limbs.legs) {
@@ -182,8 +183,8 @@ function variantPoses(limbs, v, { facing, profile, u }) {
   }
   if (v === 'dandine') {
     // petits pas, le corps se balance d'un côté à l'autre, les bras écartés
-    return walkPoses(limbs, { style: profile ? (facing < 0 ? 'gauche' : 'droite') : 'face', amp: 0.6 }).map((pose, i) => {
-      const sway = Math.round(Math.sin((2 * Math.PI * i) / 8) * 2 * u);
+    return walkPoses(limbs, { style: profile ? (facing < 0 ? 'gauche' : 'droite') : 'face', amp: 0.6, frames }).map((pose, i) => {
+      const sway = Math.round(Math.sin((2 * Math.PI * i) / frames) * 2 * u);
       for (const a of limbs.arms) set(pose, a.parts[0], a.base - a.side * 12);
       return { ...pose, [BODY]: p(0, sway, pose[BODY]?.dy ?? 0) };
     });
@@ -236,4 +237,33 @@ function variantPoses(limbs, v, { facing, profile, u }) {
     });
   }
   return null;
+}
+
+/** Les animations qui bouclent : leur dernière image enchaîne sur la première. */
+const BOUCLES = new Set(['repos', 'marche']);
+
+/**
+ * `n` poses réparties régulièrement le long d'une liste d'images clés (l'animation garde son rythme, avec moins ou
+ * plus d'images). En boucle, la dernière image clé rejoint la première.
+ */
+export function resample(poses, n, loop) {
+  const L = poses.length;
+  if (!n || n === L || L < 2) return poses;
+  return Array.from({ length: n }, (_, i) => {
+    const t = loop ? (i * L) / n : n === 1 ? 0 : (i * (L - 1)) / (n - 1);
+    const k = Math.min(L - 1, Math.floor(t));
+    return lerpPose(poses[k], poses[(k + 1) % L === 0 && !loop ? k : (k + 1) % L], t - k);
+  });
+}
+
+/**
+ * Les poses d'une animation, avec `frames` images si demandé (sinon son nombre naturel : 8 pour la marche, 4 pour le
+ * repos, 5 pour l'attaque, 3 pour le touché). La marche et ses variantes sont refaites pour ce nombre ; les autres
+ * animations sont ré-échantillonnées le long de leurs images clés.
+ */
+export function actionPoses(limbs, action, opts = {}) {
+  const poses = basePoses(limbs, action, opts);
+  if (!opts.frames) return poses;
+  const cycle = action === 'marche' && ['marche', 'course', 'glisse', 'dandine'].includes(opts.variante || 'marche');
+  return cycle ? poses : resample(poses, opts.frames, BOUCLES.has(action));
 }
