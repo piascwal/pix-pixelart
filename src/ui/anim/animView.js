@@ -252,11 +252,12 @@ export function createAnimView(canvas, container) {
     const p = pixelAt(e);
     const m = marginFor(s.rig);
 
-    // une articulation placée se déplace en la glissant (outil pivot, ou poser)
-    if ((s.step === 'cut' && s.tool === 'pivot') || s.step === 'pose') {
+    // une articulation placée se déplace en la glissant (pivot ou pinceau en découpe, ou poser) ;
+    // en découpe, la saisir choisit aussi sa pièce et passe au pinceau, pour peindre sa zone ensuite
+    if ((s.step === 'cut' && (s.tool === 'pivot' || s.tool === 'paint')) || s.step === 'pose') {
       const joint = jointAt(e, s, m);
       if (joint) {
-        anim.set({ selected: joint.id });
+        anim.set(s.step === 'cut' ? { selected: joint.id, tool: 'paint' } : { selected: joint.id });
         commit();
         drag = { kind: 'joint', id: joint.id };
         return;
