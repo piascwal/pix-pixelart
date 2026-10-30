@@ -65,7 +65,7 @@ export function bodyImage(base, rig, { maxGap = 8 } = {}) {
       if ((side(-1, 0) && side(1, 0)) || (side(0, -1) && side(0, 1))) enclosed[i] = 1;
     }
   }
-  // remplissage de proche en proche depuis le corps (la couleur du voisin déjà connu)
+  // remplissage de proche en proche depuis le corps (la couleur du voisin déjà connu) : un premier jet
   let frontier = true;
   while (frontier) {
     frontier = false;
@@ -84,7 +84,71 @@ export function bodyImage(base, rig, { maxGap = 8 } = {}) {
       frontier = true;
     }
   }
+  smoothFill(out, enclosed);
   return out;
+}
+
+/**
+ * Lisse un remplissage : les couleurs du bord diffusent vers l'intérieur (chaque pixel prend la
+ * moyenne de ses voisins, le bord restant fixe), puis chaque pixel est ramené à la couleur la plus
+ * proche parmi les couleurs fréquentes de son bord. Plus de bandes recopiées : un dégradé en vraies couleurs
+ * du sprite, sans couleur nouvelle.
+ */
+function smoothFill(img, zone, rounds = 120) {
+  const { width: w, height: h, data: d } = img;
+  const cells = [];
+  for (let i = 0; i < w * h; i++) if (zone[i] && d[i * 4 + 3]) cells.push(i);
+  if (!cells.length) return;
+  const at = new Int32Array(w * h).fill(-1);
+  cells.forEach((i, k) => { at[i] = k; });
+  const rgb = new Float32Array(cells.length * 3);
+  cells.forEach((i, k) => { rgb[k * 3] = d[i * 4]; rgb[k * 3 + 1] = d[i * 4 + 1]; rgb[k * 3 + 2] = d[i * 4 + 2]; });
+  // les couleurs du bord : les pixels pleins hors zone qui la touchent
+  const palette = new Map();
+  const near = cells.map((i) => {
+    const x = i % w, y = (i - x) / w;
+    const list = [];
+    for (const [nx, ny] of [[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]]) {
+      if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+      const j = ny * w + nx;
+      if (!d[j * 4 + 3]) continue;
+      if (at[j] >= 0) list.push(at[j]);
+      else {
+        list.push(-1 - j);
+        const key = (d[j * 4] << 16) | (d[j * 4 + 1] << 8) | d[j * 4 + 2];
+        const c = palette.get(key) || { rgb: [d[j * 4], d[j * 4 + 1], d[j * 4 + 2]], n: 0 };
+        c.n++;
+        palette.set(key, c);
+      }
+    }
+    return list;
+  });
+  const next = new Float32Array(rgb.length);
+  for (let r = 0; r < rounds; r++) {
+    near.forEach((list, k) => {
+      if (!list.length) { next.set(rgb.subarray(k * 3, k * 3 + 3), k * 3); return; }
+      let sr = 0, sg = 0, sb = 0;
+      for (const n of list) {
+        if (n >= 0) { sr += rgb[n * 3]; sg += rgb[n * 3 + 1]; sb += rgb[n * 3 + 2]; }
+        else { const j = (-1 - n) * 4; sr += d[j]; sg += d[j + 1]; sb += d[j + 2]; }
+      }
+      next[k * 3] = sr / list.length; next[k * 3 + 1] = sg / list.length; next[k * 3 + 2] = sb / list.length;
+    });
+    rgb.set(next);
+  }
+  // seulement les couleurs vraiment présentes sur le bord (une lettre, un pixel de contour égaré ne comptent pas)
+  const total = [...palette.values()].reduce((a, c) => a + c.n, 0);
+  let colors = [...palette.values()].filter((c) => c.n >= total * 0.06).map((c) => c.rgb);
+  if (!colors.length) colors = [...palette.values()].sort((a, b) => b.n - a.n).slice(0, 1).map((c) => c.rgb);
+  if (!colors.length) return;
+  cells.forEach((i, k) => {
+    let best = colors[0], bd = Infinity;
+    for (const c of colors) {
+      const e = (c[0] - rgb[k * 3]) ** 2 + (c[1] - rgb[k * 3 + 1]) ** 2 + (c[2] - rgb[k * 3 + 2]) ** 2;
+      if (e < bd) { bd = e; best = c; }
+    }
+    d[i * 4] = best[0]; d[i * 4 + 1] = best[1]; d[i * 4 + 2] = best[2];
+  });
 }
 
 /* ------------------------------------------------------------ transformations */
