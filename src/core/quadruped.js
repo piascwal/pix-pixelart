@@ -192,12 +192,12 @@ export function quadPoses(rig, action, height, { facing = 1, variante, frames } 
     });
   } else if (action === 'attaque') {
     // la charge : il baisse la tête (les bois en avant), pousse des pattes arrière et se jette en avant
-    poses = [[0, -1, 10], [25, -2, 18], [35, 4, 28], [35, 5, 30], [10, 1, 8]].map(([headA, bx, push]) => {
+    poses = [[0, -1, 10], [14, -2, 18], [20, 4, 28], [20, 5, 30], [6, 1, 8]].map(([headA, bx, push]) => {
       const pose = {};
       for (const l of legs) set(pose, l.thigh, l.front ? fwd * push * 0.6 : -fwd * push);
       set(pose, head, facing * headA);
       set(pose, tail, -facing * 10);
-      pose[BODY] = P(0, facing * bx * u, headA > 20 ? u : 0);
+      pose[BODY] = P(0, facing * bx * u, headA > 12 ? u : 0);
       return pose;
     });
   } else if (action === 'touche') {

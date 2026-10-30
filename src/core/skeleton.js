@@ -163,13 +163,14 @@ export function estimateJoints(base) {
 
   // le cou et les épaules : aux proportions moyennes (un chapeau, une capuche ou une barbe trompent
   // toute lecture de la silhouette à cette hauteur)
-  J.neck = { x: cx, y: at(0.2) };
+  J.neck = { x: cx, y: at(0.26) };
 
   // les jambes : l'entrejambe, puis le centre de chaque jambe
   const c = crotch(base, b, cx);
   const ankleY = at(0.93);
   if (c) {
-    const hipY = c.y - H * 0.03;
+    // l'articulation de la hanche est nettement au-dessus de l'entrejambe ; le genou à mi-chemin de l'entrejambe et de la cheville
+    const hipY = c.y - H * 0.07;
     const kneeY = (c.y + ankleY) / 2;
     const leg = (y, side, fallback) => legCenter(base, y, c.x, side) ?? fallback;
     const hl = leg(c.y + 2, -1, c.x - H * 0.06), hr = leg(c.y + 2, 1, c.x + H * 0.06);
@@ -189,7 +190,7 @@ export function estimateJoints(base) {
   }
 
   // les bras : épaules un peu sous le cou ; un bras détaché du torse se suit jusqu'à la main
-  const shoulderY = at(0.27);
+  const shoulderY = at(0.33);
   const [sl, sr] = spread(shoulderY, 0.12, 0.12);
   const hipY = (J.hipL.y + J.hipR.y) / 2;
   for (const [side, key, fallbackX] of [[-1, 'L', sl], [1, 'R', sr]]) {
@@ -224,6 +225,7 @@ const RADIUS = [
 ];
 const radiusFor = (name, H) => H * (RADIUS.find(([re]) => re.test(name))?.[1] ?? 0.05);
 const TIP = /main|hand|pied|foot/i;
+const TAIL = /queue|tail/i;
 
 /**
  * Attribue les pixels du corps (pièce 0) à l'os le plus proche, pour les pièces dont le
@@ -286,9 +288,16 @@ export function bonesOf(base, rig) {
       let dx = 0, dy = 1;
       if (parent && parent.id !== BODY) { dx = a.x - parent.pivot.x; dy = a.y - parent.pivot.y; }
       else if (/t[eê]te|head/i.test(part.name)) { dx = 0; dy = -1; }
+      else if (TAIL.test(part.name)) {
+        // une queue part vers l'arrière, à l'opposé du centre des autres articulations du corps
+        const roots = placed.filter((q) => q.id !== part.id && (q.parent === BODY || q.parent == null));
+        const cx = roots.reduce((s, q) => s + q.pivot.x, 0) / (roots.length || 1);
+        const cy = roots.reduce((s, q) => s + q.pivot.y, 0) / (roots.length || 1);
+        dx = a.x - cx; dy = a.y - cy;
+      }
       const n = Math.hypot(dx, dy) || 1;
       const parentLen = parent && parent.id !== BODY ? Math.hypot(a.x - parent.pivot.x, a.y - parent.pivot.y) : a.y - fb.y0;
-      const len = TIP.test(part.name) ? Math.max(3, 0.45 * parentLen) : Math.max(4, 1.2 * parentLen);
+      const len = TAIL.test(part.name) ? Math.max(3, 0.12 * H) : TIP.test(part.name) ? Math.max(3, 0.45 * parentLen) : Math.max(4, 1.2 * parentLen);
       b = { x: a.x + (dx / n) * len, y: a.y + (dy / n) * len };
       capEnd = false;
     }

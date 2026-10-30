@@ -128,6 +128,7 @@ export function geodesicSkin(base, rig, reset = null, { darkLimit = 60, darkCost
   const bones = bonesOf(base, rig);
   if (!bones.length) return 0;
   const boneOf = new Map(bones.map((b) => [b.id, b]));
+  const headIds = new Set(rig.parts.filter((p) => HEAD.test(p.name)).map((p) => p.id));
 
   const N = w * h;
   const owner = new Int16Array(N).fill(-1);
@@ -175,8 +176,11 @@ export function geodesicSkin(base, rig, reset = null, { darkLimit = 60, darkCost
       if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
       const j = ny * w + nx;
       if (!op(j) || (rig.labels[j] !== BODY && rig.labels[j] !== id)) continue;
-      // jamais en arrière de son articulation
-      if (bone && id !== BODY && toBone(bone, nx + 0.5, ny + 0.5).t < -1.5) continue;
+      // jamais en arrière de son articulation ; la tête reste près de son axe (sinon elle emporte le haut des épaules)
+      if (bone && id !== BODY) {
+        const tb = toBone(bone, nx + 0.5, ny + 0.5);
+        if (tb.t < -1.5 || (headIds.has(id) && tb.d > bone.r * 0.7)) continue;
+      }
       const nd = di + 1 + (luminance(d, j) < darkLimit ? darkCost : 0);
       if (nd < dist[j]) { dist[j] = nd; owner[j] = id; q.push(nd, j); }
     }
