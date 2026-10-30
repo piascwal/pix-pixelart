@@ -99,8 +99,9 @@ export function detectLimbs(base, rig) {
 /**
  * Les 8 poses d'un cycle de marche.
  * @param style 'face' (pas de balancement de côté : le pied se lève) | 'droite' | 'gauche' (profil, direction du regard)
+ * @param amp amplitude des mouvements (1 : la marche ; plus grand : la course)
  */
-export function walkPoses(limbs, { style = 'face', frames = 8 } = {}) {
+export function walkPoses(limbs, { style = 'face', frames = 8, amp = 1 } = {}) {
   const facing = style === 'gauche' ? -1 : 1;
   const profile = style !== 'face';
   const poses = [];
@@ -116,10 +117,10 @@ export function walkPoses(limbs, { style = 'face', frames = 8 } = {}) {
       let thighA = 0, shinA = 0;
       if (profile) {
         // avant = -facing (angle positif = sens horaire à l'écran)
-        thighA = Math.round(-facing * 26 * sin(leg.phase));
+        thighA = Math.round(-facing * 26 * amp * sin(leg.phase));
         pose[thigh] = { angle: thighA, dx: 0, dy: 0 };
         if (shin !== undefined) {
-          shinA = Math.round(facing * 42 * Math.max(0, cos(leg.phase)));
+          shinA = Math.round(facing * 42 * Math.min(1.5, amp) * Math.max(0, cos(leg.phase)));
           pose[shin] = { angle: shinA, dx: 0, dy: 0 };
         }
         // le pied reste à peu près à plat : il compense la rotation de la jambe
@@ -127,8 +128,8 @@ export function walkPoses(limbs, { style = 'face', frames = 8 } = {}) {
       } else {
         // de face : la jambe levée plie (genou monté), s'écarte un peu et le pied décolle franchement
         const up = Math.max(0, sin(leg.phase));
-        const lift = limbs.height * 0.07 * up;
-        thighA = Math.round(-leg.side * 9 * up);
+        const lift = limbs.height * 0.07 * amp * up;
+        thighA = Math.round(-leg.side * 9 * amp * up);
         pose[thigh] = { angle: thighA, dx: 0, dy: -Math.round(lift * 0.45) };
         if (shin !== undefined) {
           pose[shin] = { angle: Math.round(leg.side * 6 * up), dx: 0, dy: -Math.round(lift * 0.55) };
@@ -138,19 +139,19 @@ export function walkPoses(limbs, { style = 'face', frames = 8 } = {}) {
     }
     for (const arm of limbs.arms) {
       const [upper, fore, hand] = arm.parts;
-      const swing = (profile ? 28 : 12) * sin(arm.phase);
+      const swing = (profile ? 28 : 12) * amp * sin(arm.phase);
       pose[upper] = { angle: Math.round(arm.base + (profile ? -facing : arm.side) * swing), dx: 0, dy: 0 };
       let foreA = 0;
       if (fore !== undefined) {
-        foreA = profile ? Math.round(facing * 24 * Math.max(0, sin(arm.phase))) : 0;
+        foreA = profile ? Math.round(facing * 24 * amp * Math.max(0, sin(arm.phase))) : 0;
         pose[fore] = { angle: foreA, dx: 0, dy: 0 };
       }
       if (hand !== undefined) pose[hand] = { angle: Math.round(0.3 * foreA), dx: 0, dy: 0 };
     }
     // rebond : le corps descend à chaque appui (deux fois par cycle) et remonte au passage
     const bob = profile
-      ? (Math.abs(Math.sin(phi)) > 0.99 ? bodyDown : 0)
-      : Math.round(limbs.height * 0.02 * (0.5 + 0.5 * Math.cos(2 * phi)));
+      ? (Math.abs(Math.sin(phi)) > 0.99 ? Math.round(bodyDown * amp) : 0)
+      : Math.round(limbs.height * 0.02 * amp * (0.5 + 0.5 * Math.cos(2 * phi)));
     pose[BODY] = { angle: 0, dx: 0, dy: bob };
     poses.push(pose);
   }

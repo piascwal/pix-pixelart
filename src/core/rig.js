@@ -321,8 +321,12 @@ export function inferJoints(base, rig) {
     if (manual && part.parent !== BODY && part.parent !== null && part.parent !== undefined) continue;
     // voisines plus proches du corps que cette pièce
     let parent = BODY, best = -1;
+    const root = (p) => p.pivotSet === true && (p.parent === BODY || p.parent === null || p.parent === undefined);
     for (const q of rig.parts) {
       if (q.id === BODY || q.id === part.id || !stat.has(q.id)) continue;
+      // deux pièces placées et rattachées au corps (les deux cuisses, qui se touchent à l'entrejambe) sont sœurs :
+      // l'une ne devient pas l'enfant de l'autre
+      if (manual && root(q)) continue;
       const c = contact.get(`${part.id}>${q.id}`);
       if (!c || dist(q.id) >= dist(part.id)) continue;
       if (c.n > best) { best = c.n; parent = q.id; }

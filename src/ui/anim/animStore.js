@@ -3,13 +3,13 @@
 // l'étape et l'outil en cours, l'historique annuler / rétablir.
 
 import { createStore } from '../state.js';
-import { createRig, composeFrame, applyEdits, completeParts, fillPoseGaps, inferJoints, BODY } from '../../core/rig.js';
+import { createRig, composeFrame, applyEdits, completeParts, fillPoseGaps, inferJoints, commonBounds, BODY } from '../../core/rig.js';
 import { inBetween } from '../../core/poses.js';
 import { detectLimbs } from '../../core/walk.js';
-import { actionPoses, ACTION_INFO } from '../../core/actions.js';
+import { actionPoses, ACTION_INFO, VARIANTES } from '../../core/actions.js';
 import { polishFrame } from '../../core/polish.js';
 import { serializeProject, parseProject } from '../../core/project.js';
-import { cloneImage } from '../../core/image.js';
+import { cloneImage, crop } from '../../core/image.js';
 import { HUMAN_PARTS, estimateJoints } from '../../core/skeleton.js';
 import { geodesicSkin } from '../../core/geoskin.js';
 import { removeSmallIslands } from '../../core/cleanup.js';
@@ -39,6 +39,7 @@ export const anim = createStore({
   clip: 'marche',    // animation en cours (voir core/actions.js) ; ses images sont `frames`
   clips: {},         // les images des autres animations, par nom
   polish: true,      // finition auto des images (pixels seuls, îlots, petits trous)
+  variantes: {},     // la variante choisie pour chaque animation (voir VARIANTES dans core/actions.js)
   between: 3,        // nombre d'images à intercaler
   version: 0,        // incrémenté à chaque changement du découpage
   history: { undo: 0, redo: 0 },
@@ -93,7 +94,7 @@ export function start(image) {
     anim.set({
       base, active: true, rig: createRig(base.width, base.height),
       frames: [{ pose: {}, edits: new Map() }], current: 0, selected: BODY, step: 'cut', tool: 'paint',
-      clip: 'marche', clips: {},
+      clip: 'marche', clips: {}, variantes: {},
     });
     anim.get().rig.parts[0].pivotSet = true;
     publish();
@@ -312,7 +313,7 @@ export function interpolateFrames(count) {
  * Remplace les images de l'animation en cours par ses poses prêtes à l'emploi (marche, repos,
  * attaque, touché : voir core/actions.js). Renvoie false s'il n'y a ni bras ni jambe à animer.
  */
-export function generateAction(style = anim.get().walkStyle, action = anim.get().clip) {
+export function generateAction(style = anim.get().walkStyle, action = anim.get().clip, variante = anim.get().variantes[action]) {
   // les pièces sont déjà découpées : on en déduit articulations et hiérarchie manquantes
   if (inferJoints(anim.get().base, anim.get().rig)) bump();
   ensurePivots();
@@ -320,9 +321,41 @@ export function generateAction(style = anim.get().walkStyle, action = anim.get()
   const limbs = detectLimbs(base, rig);
   if (!limbs) return false;
   commit();
-  const frames = actionPoses(limbs, action, { style }).map((pose) => ({ pose, edits: new Map() }));
-  anim.set({ frames, current: 0, step: 'pose', playing: false, fps: ACTION_INFO[action]?.fps ?? anim.get().fps });
+  const frames = actionPoses(limbs, action, { style, variante }).map((pose) => ({ pose, edits: new Map() }));
+  anim.set((st) => ({
+    frames, current: 0, step: 'pose', playing: false, fps: ACTION_INFO[action]?.fps ?? st.fps,
+    variantes: variante ? { ...st.variantes, [action]: variante } : st.variantes,
+  }));
   return true;
+}
+
+const previews = { key: '', list: [] };
+
+/**
+ * Les variantes de l'animation en cours, jouées sur le personnage découpé, sans rien changer au
+ * projet : [{ key, label, images }]. Vide s'il n'y a ni bras ni jambe reconnus. Mis en cache.
+ */
+export function variantPreviews() {
+  const s = anim.get();
+  if (!s.rig || !s.base) return [];
+  const key = `${s.version}|${s.clip}|${s.walkStyle}|${s.polish}`;
+  if (previews.key === key) return previews.list;
+  ensurePivots();
+  // sur une copie : déduire les articulations ne doit pas toucher au découpage de l'utilisateur
+  const rig = structuredClone(s.rig);
+  inferJoints(s.base, rig);
+  const limbs = detectLimbs(s.base, rig);
+  previews.key = key;
+  previews.list = !limbs ? [] : (VARIANTES[s.clip] || []).map(({ key: k, label }) => {
+    const images = actionPoses(limbs, s.clip, { style: s.walkStyle, variante: k }).map((pose) => {
+      const img = composeFrame(s.base, rig, pose).image;
+      return s.polish ? polishFrame(img) : img;
+    });
+    // recadrées sur le personnage (la marge prévue pour le mouvement le rendrait minuscule), même boîte pour toutes
+    const b = commonBounds(images);
+    return { key: k, label, images: images.map((img) => crop(img, b.x, b.y, b.w, b.h)) };
+  });
+  return previews.list;
 }
 export const generateWalk = (style) => generateAction(style, 'marche');
 
@@ -363,7 +396,7 @@ export function loadProject(text) {
   delete clips[clip];
   undo = []; redo = [];
   anim.set({
-    base: p.base, rig: p.rig, active: true, clip, clips, frames, current: 0, selected: BODY,
+    base: p.base, rig: p.rig, active: true, clip, clips, frames, current: 0, selected: BODY, variantes: {},
     step: 'pose', tool: 'paint', fps: p.fps, walkStyle: p.style || anim.get().walkStyle, playing: false,
   });
   publish();

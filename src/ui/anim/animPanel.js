@@ -4,7 +4,7 @@
 
 import { BODY, spriteSheet, commonBounds } from '../../core/rig.js';
 import { gameSheet } from '../../core/project.js';
-import { ACTIONS, ACTION_INFO } from '../../core/actions.js';
+import { ACTIONS, ACTION_INFO, VARIANTES } from '../../core/actions.js';
 import { usedColors } from '../../core/palette.js';
 import { toHex } from '../../core/image.js';
 import { upscale, flatten } from '../../core/upscale.js';
@@ -16,7 +16,7 @@ import { icon } from '../icons.js';
 import { toast } from '../clipboard.js';
 import {
   anim, commit, undoLast, redoLast, addPart, removePart, updatePart, movePart, setPose,
-  addFrame, removeFrame, clearEdits, frameImage, partColor, interpolateFrames, generateAction, switchClip, allClips, saveProject, completeCut, completePose, addHumanSkeleton, autoSkin, cleanIslands,
+  addFrame, removeFrame, clearEdits, frameImage, partColor, interpolateFrames, generateAction, switchClip, allClips, saveProject, variantPreviews, completeCut, completePose, addHumanSkeleton, autoSkin, cleanIslands,
 } from './animStore.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -177,6 +177,41 @@ export function createAnimPanel(root, mainStore) {
   $('#anim-onion', root).addEventListener('click', () => anim.set((s) => ({ onion: !s.onion })));
   for (const b of root.querySelectorAll('[data-walk]')) b.addEventListener('click', () => anim.set({ walkStyle: b.dataset.walk }));
   for (const b of root.querySelectorAll('[data-clip]')) b.addEventListener('click', () => switchClip(b.dataset.clip));
+
+  /* ------------------------------------------- galerie des variantes */
+  // chaque variante jouée en boucle sur le personnage découpé ; un toucher la génère
+  const gallery = $('#anim-gallery', root);
+  let shown = [], tick = 0, timer = 0;
+  const toCanvas = (img, c) => {
+    c.width = img.width; c.height = img.height;
+    c.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(img.data), img.width, img.height), 0, 0);
+  };
+  function renderGallery() {
+    const s = anim.get();
+    const visible = s.active && s.step === 'pose';
+    clearInterval(timer);
+    if (!visible) { gallery.replaceChildren(); shown = []; return; }
+    const list = variantPreviews();
+    const chosen = s.variantes[s.clip] || VARIANTES[s.clip]?.[0].key;
+    gallery.replaceChildren();
+    shown = list.map((v) => {
+      const b = el('button', 'galerie-item');
+      b.type = 'button';
+      b.setAttribute('aria-pressed', String(v.key === chosen));
+      const c = el('canvas');
+      b.append(c, el('span', '', v.label));
+      b.addEventListener('click', () => {
+        if (!generateAction(anim.get().walkStyle, anim.get().clip, v.key)) toast('Aucun bras ni jambe reconnu.');
+      });
+      gallery.append(b);
+      return { canvas: c, images: v.images };
+    });
+    if (!list.length) gallery.append(el('p', 'hint', 'Découpez d’abord bras et jambes (Squelette, puis Découpe auto) pour voir les variantes.'));
+    const step = () => { tick++; for (const v of shown) toCanvas(v.images[tick % v.images.length], v.canvas); };
+    step();
+    timer = setInterval(step, 1000 / Math.max(1, ACTION_INFO[s.clip]?.fps ?? 8));
+  }
+  watch(anim, ['active', 'step', 'version', 'clip', 'walkStyle', 'polish', 'variantes'], renderGallery);
   const polish = $('#anim-polish', root);
   polish.addEventListener('change', () => anim.set({ polish: polish.checked }));
   $('#anim-save-project', root).addEventListener('click', () => {

@@ -12,6 +12,18 @@ import { walkPoses } from './walk.js';
 
 export const ACTIONS = ['repos', 'marche', 'attaque', 'touche'];
 
+/**
+ * Les variantes de chaque animation (la première est celle par défaut) : la marche peut être une
+ * course, une glisse de patineur ou un dandinement ; l'attaque une frappe, une charge ou un lancer…
+ * Depix les montre toutes en aperçu animé, sur le personnage découpé, avant d'en choisir une.
+ */
+export const VARIANTES = {
+  repos: [{ key: 'respire', label: 'Respire' }, { key: 'balance', label: 'Se balance' }],
+  marche: [{ key: 'marche', label: 'Marche' }, { key: 'course', label: 'Course' }, { key: 'glisse', label: 'Glisse' }, { key: 'dandine', label: 'Dandine' }],
+  attaque: [{ key: 'frappe', label: 'Frappe' }, { key: 'charge', label: 'Charge' }, { key: 'lancer', label: 'Lancer' }],
+  touche: [{ key: 'recul', label: 'Recul' }, { key: 'secousse', label: 'Secousse' }],
+};
+
 /** Nombre d'images par défaut et cadence conseillée (images par seconde) de chaque animation. */
 export const ACTION_INFO = {
   repos: { label: 'Repos', fps: 4 },
@@ -59,20 +71,23 @@ function posed(limbs, facing, { arm = 0, fore = 0, thigh = 0, shin = 0, body = {
  * @param style 'face' | 'droite' | 'gauche' (direction du regard)
  * @returns {Array<object>} les poses
  */
-export function actionPoses(limbs, action, { style = 'droite', keepPose = true } = {}) {
+export function actionPoses(limbs, action, { style = 'droite', keepPose = true, variante } = {}) {
   // keepPose : la pose dessinée est la pose de repos (un bras replié sur un ballon le reste) ;
   // sinon les bras sont d'abord ramenés le long du corps, comme la marche de walk.js
   if (keepPose) limbs = { ...limbs, arms: limbs.arms.map((a) => ({ ...a, base: 0 })) };
-  if (action === 'marche') {
-    const poses = walkPoses(limbs, { style });
+  const v = variante || VARIANTES[action]?.[0].key;
+  if (action === 'marche' && (v === 'marche' || v === 'course')) {
+    const poses = walkPoses(limbs, { style, amp: v === 'course' ? 1.6 : 1 });
     if (!keepPose) return poses;
     // un bras dessiné replié (sur un ballon, une arme) balance deux fois moins qu'un bras pendant
     const armParts = new Set(limbs.arms.flatMap((a) => a.parts));
-    return poses.map((pose) => Object.fromEntries(Object.entries(pose).map(([id, v]) => [id, armParts.has(Number(id)) ? { ...v, angle: Math.round(v.angle / 2) } : v])));
+    return poses.map((pose) => Object.fromEntries(Object.entries(pose).map(([id, q]) => [id, armParts.has(Number(id)) ? { ...q, angle: Math.round(q.angle / 2) } : q])));
   }
   const facing = style === 'gauche' ? -1 : 1;
   const H = limbs.height || 40;
   const u = Math.max(1, Math.round(H * 0.015)); // un « pas » de décalage, à l'échelle du sprite
+  const special = variantPoses(limbs, v, { facing, profile: style !== 'face', u });
+  if (special) return special;
   if (style === 'face') return facePoses(limbs, action, u);
   if (action === 'repos') {
     // il respire : le corps descend d'un cran, les bras suivent à peine
@@ -122,4 +137,103 @@ function facePoses(limbs, action, u) {
   if (action === 'attaque') return [sym(-10, u), sym(-15, u, 3), sym(60, 0, 6), sym(65, 0, 6), sym(20)];
   if (action === 'touche') return [sym(35, -u, 6), sym(20, 0, 3), sym(5)];
   return [sym(0)];
+}
+
+/** La jambe ou le bras du côté du regard (le premier sinon). */
+const lead = (list, facing) => list.find((l) => l.side === facing) || list[0];
+
+/**
+ * Les variantes autres que celles par défaut ; null pour une variante par défaut (traitée plus haut).
+ * profile : de profil (sinon de face) ; u : un pas de décalage, à l'échelle du sprite.
+ */
+function variantPoses(limbs, v, { facing, profile, u }) {
+  const fwd = -facing;
+  const set = (pose, id, angle = 0, dx = 0, dy = 0) => { if (id !== undefined) pose[id] = p(angle, dx, dy); };
+  if (v === 'glisse') {
+    // patin : une jambe pousse (en arrière de profil, vers l'extérieur de face), l'autre porte, genou plié ;
+    // le corps reste bas et glisse vers la jambe qui porte ; les bras balancent large
+    return Array.from({ length: 8 }, (_, i) => {
+      const phi = (2 * Math.PI * i) / 8;
+      const pose = {};
+      let dx = 0;
+      for (const l of limbs.legs) {
+        const push = Math.max(0, Math.sin(phi + l.phase));
+        const [th, sh, foot] = l.parts;
+        let thA, shA;
+        if (profile) {
+          thA = facing * 30 * push + fwd * 10 * (1 - push);
+          shA = facing * 6 * push + facing * 16 * (1 - push);
+        } else {
+          thA = -l.side * 22 * push;
+          shA = l.side * 8 * push;
+          dx += -l.side * 1.5 * u * push;
+        }
+        set(pose, th, thA); set(pose, sh, shA); set(pose, foot, -0.7 * (thA + shA));
+      }
+      for (const a of limbs.arms) {
+        const swing = Math.sin(phi + a.phase);
+        const [upper, fore] = a.parts;
+        set(pose, upper, a.base + (profile ? fwd * 34 * swing : -a.side * 16 * Math.max(0, swing)));
+        set(pose, fore, profile ? facing * 10 * Math.max(0, swing) : 0);
+      }
+      pose[BODY] = p(0, dx, 2 * u);
+      return pose;
+    });
+  }
+  if (v === 'dandine') {
+    // petits pas, le corps se balance d'un côté à l'autre, les bras écartés
+    return walkPoses(limbs, { style: profile ? (facing < 0 ? 'gauche' : 'droite') : 'face', amp: 0.6 }).map((pose, i) => {
+      const sway = Math.round(Math.sin((2 * Math.PI * i) / 8) * 2 * u);
+      for (const a of limbs.arms) set(pose, a.parts[0], a.base - a.side * 12);
+      return { ...pose, [BODY]: p(0, sway, pose[BODY]?.dy ?? 0) };
+    });
+  }
+  if (v === 'balance') {
+    // au repos, il se balance d'un pied sur l'autre
+    return [0, 1, 0, -1].map((k) => {
+      const pose = {};
+      for (const a of limbs.arms) set(pose, a.parts[0], a.base + k * 3);
+      pose[BODY] = p(0, k * u, Math.abs(k) * u);
+      return pose;
+    });
+  }
+  if (v === 'charge') {
+    // tête baissée : il se ramasse, puis fonce corps en avant, jambe d'appel tendue derrière
+    const steps = [[-1, 1, -10, 0], [-2, 2, -15, 0], [5, 0, 25, 1], [6, 0, 30, 1], [2, 0, 10, 0]];
+    return steps.map(([bx, by, legA, armBack]) => {
+      const pose = {};
+      for (const l of limbs.legs) {
+        const k = l.side === facing || !profile ? 1 : -1;
+        const thA = profile ? fwd * legA * k : -l.side * Math.abs(legA) * 0.3;
+        set(pose, l.parts[0], thA); set(pose, l.parts[2], -0.7 * thA);
+      }
+      for (const a of limbs.arms) set(pose, a.parts[0], a.base + (profile ? facing * 30 * armBack : -a.side * 20 * armBack));
+      pose[BODY] = p(0, facing * bx * u, by * u);
+      return pose;
+    });
+  }
+  if (v === 'lancer') {
+    // le bras du côté du regard s'arme au-dessus de l'épaule, puis lance vers l'avant
+    const arm = lead(limbs.arms, facing);
+    if (!arm) return null;
+    const angles = profile ? [-40, -150, 70, 50, 10] : [-60, -160, 30, 20, 0];
+    return angles.map((a, i) => {
+      const pose = {};
+      const [upper, fore] = arm.parts;
+      set(pose, upper, arm.base + (profile ? fwd * a : arm.side * a));
+      set(pose, fore, profile ? fwd * (i === 1 ? -40 : 0) : 0);
+      pose[BODY] = p(0, (i >= 2 ? 2 : i === 1 ? -1 : 0) * facing * u, 0);
+      return pose;
+    });
+  }
+  if (v === 'secousse') {
+    // le coup le secoue sur place, bras levés
+    return [1, -1, 1, 0].map((k, i) => {
+      const pose = {};
+      for (const a of limbs.arms) set(pose, a.parts[0], a.base + (profile ? facing * 15 : -a.side * 15) * (i < 3 ? 1 : 0.3));
+      pose[BODY] = p(0, k * u, i < 3 ? -u : 0);
+      return pose;
+    });
+  }
+  return null;
 }

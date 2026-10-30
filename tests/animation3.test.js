@@ -107,3 +107,39 @@ test('planche pour le jeu : une ligne par animation, même boîte pour toutes', 
   assert.equal(alpha(image, 0, 0), 255);                 // le rouge de `a` en haut à gauche
   assert.equal(alpha(image, 6 + 5, 7 + 6), 255);         // le vert de `b`, 2e image de la 2e ligne
 });
+
+test('variantes : chacune donne des poses entières, la glisse fait pousser une jambe puis l’autre', async () => {
+  const { VARIANTES } = await import('../src/core/actions.js');
+  const { base, rig } = figure();
+  const limbs = detectLimbs(base, rig);
+  for (const [action, list] of Object.entries(VARIANTES)) {
+    for (const { key } of list) {
+      for (const style of ['face', 'droite', 'gauche']) {
+        const poses = actionPoses(limbs, action, { style, variante: key });
+        assert.ok(poses.length >= 3, `${action}/${key}/${style}`);
+        for (const pose of poses) for (const v of Object.values(pose)) assert.ok(Number.isInteger(v.angle) && Number.isInteger(v.dx) && Number.isInteger(v.dy));
+      }
+    }
+  }
+  const glisse = actionPoses(limbs, 'marche', { style: 'face', variante: 'glisse' });
+  const [left, right] = limbs.legs.map((l) => l.parts[0]);
+  const pushes = (id) => glisse.map((pose) => Math.abs(pose[id]?.angle ?? 0));
+  // chaque jambe pousse à son tour : quand l'une pousse fort, l'autre est au repos
+  const l = pushes(left), r = pushes(right);
+  assert.ok(Math.max(...l) > 10 && Math.max(...r) > 10);
+  for (let i = 0; i < l.length; i++) assert.ok(Math.min(l[i], r[i]) < 3, `image ${i} : ${l[i]} et ${r[i]}`);
+});
+
+test('déduire les articulations : deux cuisses placées et rattachées au corps restent sœurs', async () => {
+  const { inferJoints } = await import('../src/core/rig.js');
+  const base = createImage(20, 20);
+  for (let y = 10; y < 20; y++) for (let x = 5; x < 15; x++) put(base, x, y, [0, 0, 200]);
+  for (let y = 0; y < 10; y++) for (let x = 5; x < 15; x++) put(base, x, y, [200, 0, 0]);
+  const rig = createRig(20, 20);
+  rig.parts.push({ id: 1, name: 'Cuisse gauche', pivot: { x: 7.5, y: 10.5 }, parent: BODY, pivotSet: true });
+  rig.parts.push({ id: 2, name: 'Cuisse droite', pivot: { x: 12.5, y: 10.5 }, parent: BODY, pivotSet: true });
+  for (let y = 10; y < 20; y++) for (let x = 5; x < 15; x++) rig.labels[y * 20 + x] = x < 10 ? 1 : 2;
+  inferJoints(base, rig);
+  assert.equal(rig.parts.find((p) => p.id === 1).parent, BODY);
+  assert.equal(rig.parts.find((p) => p.id === 2).parent, BODY);
+});
