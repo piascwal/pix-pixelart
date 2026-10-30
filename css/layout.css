@@ -76,8 +76,9 @@
 }
 
 /* Sans image : pas d'aperçus vides ni de barre d'outils, juste la zone d'import,
-   bien en vue (sur téléphone elle se retrouvait sous la ligne de flottaison). */
-body:not(.has-image) .toolbar,
+   bien en vue (sur téléphone elle se retrouvait sous la ligne de flottaison). Le mode Animation garde
+   la sienne : un projet d'animation s'ouvre depuis l'accueil, sans image convertie. */
+body:not(.has-image):not(.is-anim) .toolbar,
 body:not(.has-image) .gesture-hint { display: none; }
 
 @media (max-width: 999px) {
