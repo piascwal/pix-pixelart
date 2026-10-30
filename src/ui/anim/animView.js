@@ -11,6 +11,7 @@
 //   Retoucher: crayon, gomme, pipette sur l'image courante.
 
 import { worldTransforms, apply, marginFor, BODY } from '../../core/rig.js';
+import { jointLabel } from '../../core/skeleton.js';
 import { watch } from '../state.js';
 import {
   anim, commit, paintAt, placePivot, movePivot, setPose, setEdit, frameImage, partColor,
@@ -174,9 +175,11 @@ export function createAnimView(canvas, container) {
         ctx.font = '600 12px system-ui, sans-serif';
         ctx.lineWidth = 3;
         ctx.strokeStyle = 'rgba(0,0,0,0.75)';
-        ctx.strokeText(p.name, cx + r + 4, cy + 4);
+        // le point est l'articulation (le genou pour la jambe), pas le membre
+        const label = jointLabel(p.name);
+        ctx.strokeText(label, cx + r + 4, cy + 4);
         ctx.fillStyle = '#fff';
-        ctx.fillText(p.name, cx + r + 4, cy + 4);
+        ctx.fillText(label, cx + r + 4, cy + 4);
       }
     }
   }

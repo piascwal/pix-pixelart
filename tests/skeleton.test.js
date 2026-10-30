@@ -59,3 +59,13 @@ test('découpe auto : chaque pixel de membre va à son os, le torse reste au cor
   assert.ok(limbs && limbs.legs.length === 2 && limbs.arms.length === 2);
   assert.equal(limbs.legs[0].parts.length, 3);                           // cuisse, jambe, pied
 });
+
+test('le point d’une pièce porte le nom de son articulation', async () => {
+  const { jointLabel } = await import('../src/core/skeleton.js');
+  assert.equal(jointLabel('Jambe gauche'), 'Genou gauche');
+  assert.equal(jointLabel('Cuisse droite'), 'Hanche droite');
+  assert.equal(jointLabel('Bras droit'), 'Épaule droite');
+  assert.equal(jointLabel('Main gauche'), 'Poignet gauche');
+  assert.equal(jointLabel('Tête'), 'Cou');
+  assert.equal(jointLabel('Crosse'), 'Articulation de crosse');
+});

@@ -4,6 +4,7 @@
 
 import { BODY, spriteSheet, commonBounds } from '../../core/rig.js';
 import { gameSheet } from '../../core/project.js';
+import { jointLabel } from '../../core/skeleton.js';
 import { ACTIONS, ACTION_INFO, VARIANTES } from '../../core/actions.js';
 import { usedColors } from '../../core/palette.js';
 import { toHex } from '../../core/image.js';
@@ -65,6 +66,7 @@ export function createAnimPanel(root, mainStore) {
       li.addEventListener('click', () => anim.set({ selected: id }));
       const chip = el('span', 'part-chip');
       chip.style.background = partColor(id);
+      if (id !== BODY) chip.dataset.tip = `Son point : ${jointLabel(p.name).toLowerCase()}`;
       li.append(chip);
       if (id === BODY) {
         li.dataset.tip = 'Zone par défaut : tout ce qui n\u2019est pas attribué à une pièce. On ne la peint pas.';

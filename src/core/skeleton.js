@@ -26,6 +26,24 @@ export const HUMAN_PARTS = [
   { key: 'head', name: 'Tête', parent: null, joint: 'neck' },
 ];
 
+/** Le nom de chaque articulation, tel qu'on le montre sur le point à glisser. */
+export const JOINT_LABELS = {
+  hipL: 'Hanche gauche', kneeL: 'Genou gauche', ankleL: 'Cheville gauche',
+  hipR: 'Hanche droite', kneeR: 'Genou droit', ankleR: 'Cheville droite',
+  shoulderL: 'Épaule gauche', elbowL: 'Coude gauche', wristL: 'Poignet gauche',
+  shoulderR: 'Épaule droite', elbowR: 'Coude droit', wristR: 'Poignet droit',
+  neck: 'Cou',
+};
+
+/**
+ * Le point d'une pièce est son articulation, pas le membre : « Genou gauche » pour la jambe
+ * gauche (qui va du genou à la cheville). Pour une pièce ajoutée à la main : « Articulation de … ».
+ */
+export function jointLabel(partName) {
+  const spec = HUMAN_PARTS.find((p) => p.name === partName);
+  return spec ? JOINT_LABELS[spec.joint] : `Articulation de ${partName.toLowerCase()}`;
+}
+
 const snap = (v) => Math.floor(v) + 0.5;
 
 /** Segments d'opaque d'une ligne (les trous d'un pixel ne coupent pas). */
