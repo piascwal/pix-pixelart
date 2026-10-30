@@ -143,3 +143,17 @@ test('déduire les articulations : deux cuisses placées et rattachées au corps
   assert.equal(rig.parts.find((p) => p.id === 1).parent, BODY);
   assert.equal(rig.parts.find((p) => p.id === 2).parent, BODY);
 });
+
+test('déduire les articulations : une cuisse accrochée à l’autre (ancien projet) est rendue au corps', async () => {
+  const { inferJoints } = await import('../src/core/rig.js');
+  const base = createImage(20, 20);
+  for (let y = 0; y < 20; y++) for (let x = 5; x < 15; x++) put(base, x, y, [0, 0, 200]);
+  const rig = createRig(20, 20);
+  rig.parts.push({ id: 1, name: 'Cuisse gauche', pivot: { x: 7.5, y: 10.5 }, parent: BODY, pivotSet: true });
+  rig.parts.push({ id: 2, name: 'Cuisse droite', pivot: { x: 12.5, y: 10.5 }, parent: 1, pivotSet: true });
+  rig.parts.push({ id: 3, name: 'Avant-bras droit', pivot: { x: 12.5, y: 5.5 }, parent: 2, pivotSet: true });
+  for (let y = 10; y < 20; y++) for (let x = 5; x < 15; x++) rig.labels[y * 20 + x] = x < 10 ? 1 : 2;
+  inferJoints(base, rig);
+  assert.equal(rig.parts.find((p) => p.id === 2).parent, BODY);
+  assert.equal(rig.parts.find((p) => p.id === 3).parent, 2, 'un avant-bras garde son parent');
+});

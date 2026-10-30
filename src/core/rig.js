@@ -315,6 +315,17 @@ export function inferJoints(base, rig) {
   const bx = body.sx / body.n, by = body.sy / body.n;
   const dist = (id) => { const s = stat.get(id); return Math.hypot(s.sx / s.n - bx, s.sy / s.n - by); };
   let changed = 0;
+  // réparation des projets découpés avant que les pièces racines soient sœurs : une cuisse, un bras ou la tête
+  // du squelette humain accrochés à une autre de ces pièces sont rendus au corps
+  const ROOT = /^(cuisse|bras|t[eê]te)\b/i;
+  const byId = new Map(rig.parts.map((p) => [p.id, p]));
+  for (const part of rig.parts) {
+    const parent = byId.get(part.parent);
+    if (part.id !== BODY && ROOT.test(part.name) && parent && parent.id !== BODY && ROOT.test(parent.name)) {
+      part.parent = BODY;
+      changed++;
+    }
+  }
   for (const part of rig.parts) {
     if (part.id === BODY || !stat.has(part.id)) continue;
     const manual = part.pivotSet === true;
