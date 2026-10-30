@@ -90,14 +90,18 @@ export function estimateQuadJoints(base) {
   const bodyX = (torso[0] + torso[1] + 1) / 2;
   // les pattes : les segments à mi-hauteur entre le ventre et les sabots
   const legY = Math.round((belly + b.y1) / 2);
-  let legs = runs(base, legY).filter(([a, c]) => c - a >= 1).map(([a, c]) => (a + c + 1) / 2);
-  while (legs.length < 4) {
-    // pattes qui se touchent : on coupe le segment le plus large en deux
-    const all = runs(base, legY).filter(([a, c]) => c - a >= 1);
-    if (!all.length) { legs = [torso[0] + W * 0.1, torso[0] + W * 0.25, torso[1] - W * 0.25, torso[1] - W * 0.1]; break; }
-    const w = all.reduce((m, r) => (r[1] - r[0] > m[1] - m[0] ? r : m));
-    legs = [...legs.filter((x) => x < w[0] || x > w[1]), w[0] + (w[1] - w[0]) / 3, w[0] + (2 * (w[1] - w[0])) / 3];
+  // les segments sous le ventre ; s'il y en a moins de quatre (des pattes qui se touchent), on coupe le plus large en
+  // deux, au plus trois fois : la boucle se termine toujours
+  const segs = runs(base, legY).filter(([a, c]) => c - a >= 1);
+  for (let k = 0; segs.length && segs.length < 4 && k < 3; k++) {
+    const i = segs.reduce((m, r, j) => (r[1] - r[0] > segs[m][1] - segs[m][0] ? j : m), 0);
+    const [a, c] = segs[i];
+    const mid = Math.floor((a + c) / 2);
+    segs.splice(i, 1, [a, mid], [mid + 1, Math.max(mid + 1, c)]);
   }
+  let legs = segs.length
+    ? segs.map(([a, c]) => (a + c + 1) / 2)
+    : [torso[0] + W * 0.1, torso[0] + W * 0.25, torso[1] - W * 0.25, torso[1] - W * 0.1];
   legs.sort((p, q) => p - q);
   if (legs.length > 4) legs = [legs[0], legs[1], legs[legs.length - 2], legs[legs.length - 1]];
   // de l'arrière vers l'avant ; dans chaque paire, la patte proche est la plus en arrière (trois quarts)

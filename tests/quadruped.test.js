@@ -70,3 +70,12 @@ test('quadrupède : la découpe sépare les quatre pattes, le pas avance en diag
   assert.equal(quadPoses(rig, 'attaque', img.height, { frames: 4 }).length, 4);
   assert.equal(jointLabel('Jambe arrière loin'), 'Jarret arrière loin');
 });
+
+test('quadrupède : sur un sprite qui n’en est pas un (deux jambes), les articulations se posent sans boucler', () => {
+  const img = createImage(40, 60);
+  fill(img, 14, 10, 26, 34, [200, 40, 40]);   // un torse
+  fill(img, 14, 34, 19, 58, [40, 40, 120]);   // deux jambes
+  fill(img, 21, 34, 26, 58, [40, 40, 120]);
+  const { joints } = estimateQuadJoints(img);
+  for (const k of ['hipBN', 'hipBF', 'shoulderFN', 'shoulderFF']) assert.ok(Number.isFinite(joints[k].x), k);
+});
